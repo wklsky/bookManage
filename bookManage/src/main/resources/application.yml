@@ -1,21 +1,21 @@
-server: 
-  port: 8080
+server:
+  port: 8080 # 与我们在 Swagger 文档中定义的一致
 
 spring:
-datasource:
-driver-class-name: com.mysql.cj.jdbc.Driver
-url: jdbc:mysql://localhost:3306/book_system?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
-username: root
-password: your_password
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://81.70.93.58:3306/book_system?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: Library
+    password: dHMJpiB4mGeG4zte
 
-data:
-redis:
-host: localhost
-port: 6379
-# password: your_redis_password # 如果没有密码可注释掉
-database: 0
+  data:
+    redis:
+      host: 81.70.93.58
+      port: 6379
+      password: aq123456
+      database: 0
 
 mybatis-plus:
-mapper-locations: classpath*:/mapper/**/*.xml # XML映射文件位置
-configuration:
-map-underscore-to-camel-case: true # 自动将数据库下划线字段转为驼峰属性 (如 created_at -> createdAt)
+  mapper-locations: classpath*:/mapper/**/*.xml # XML映射文件位置
+  configuration:
+    map-underscore-to-camel-case: true # 自动将数据库下划线字段转为驼峰属性 (如 created_at -> createdAt)

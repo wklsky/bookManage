@@ -1,0 +1,3023 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "图书管理系统 API",
+    "description": "面向读者、图书管理员和系统管理员的图书管理系统接口。\n\n设计约定：\n- 除注册、登录和刷新令牌外，接口均需携带 `Authorization: Bearer <accessToken>`。\n- 角色包括 `READER`、`LIBRARIAN` 和 `ADMIN`。\n- 分页从第 1 页开始，默认每页 10 条，最多 100 条。\n- 成功响应统一使用 `code/message/data`，失败响应提供字段错误、请求标识和时间戳。\n- 图书删除为软删除，存在未完成借阅时返回 409。",
+    "version": "4.0.0",
+    "contact": {
+      "name": "Book Management Team"
+    }
+  },
+  "host": "localhost:8080",
+  "basePath": "/",
+  "schemes": [
+    "http"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "注册、登录、令牌刷新与退出登录"
+    },
+    {
+      "name": "User",
+      "description": "个人中心与用户管理"
+    },
+    {
+      "name": "Category",
+      "description": "图书分类管理"
+    },
+    {
+      "name": "Book",
+      "description": "图书资料、检索与库存管理"
+    },
+    {
+      "name": "Order",
+      "description": "预约、审核、借出、归还的完整借阅流程"
+    },
+    {
+      "name": "Dashboard",
+      "description": "管理端统计概览"
+    }
+  ],
+  "securityDefinitions": {
+    "BearerAuth": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "JWT 访问令牌，格式：Bearer {accessToken}"
+    }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "parameters": {
+    "PageParam": {
+      "name": "page",
+      "in": "query",
+      "description": "页码，从 1 开始",
+      "required": false,
+      "type": "integer",
+      "format": "int32",
+      "default": 1,
+      "minimum": 1
+    },
+    "SizeParam": {
+      "name": "size",
+      "in": "query",
+      "description": "每页数量",
+      "required": false,
+      "type": "integer",
+      "format": "int32",
+      "default": 10,
+      "minimum": 1,
+      "maximum": 100
+    }
+  },
+  "responses": {
+    "BadRequest": {
+      "description": "请求格式错误或参数校验失败",
+      "schema": {
+        "$ref": "#/definitions/ErrorResponse"
+      }
+    },
+    "Unauthorized": {
+      "description": "未登录、访问令牌无效或已过期",
+      "schema": {
+        "$ref": "#/definitions/ErrorResponse"
+      }
+    },
+    "Forbidden": {
+      "description": "当前用户无权执行该操作",
+      "schema": {
+        "$ref": "#/definitions/ErrorResponse"
+      }
+    },
+    "NotFound": {
+      "description": "请求的资源不存在",
+      "schema": {
+        "$ref": "#/definitions/ErrorResponse"
+      }
+    },
+    "Conflict": {
+      "description": "资源状态冲突、数据重复或违反业务约束",
+      "schema": {
+        "$ref": "#/definitions/ErrorResponse"
+      }
+    },
+    "UnprocessableEntity": {
+      "description": "请求格式正确，但不满足业务规则",
+      "schema": {
+        "$ref": "#/definitions/ErrorResponse"
+      }
+    },
+    "TooManyRequests": {
+      "description": "请求过于频繁",
+      "schema": {
+        "$ref": "#/definitions/ErrorResponse"
+      }
+    },
+    "InternalServerError": {
+      "description": "服务器内部错误",
+      "schema": {
+        "$ref": "#/definitions/ErrorResponse"
+      }
+    }
+  },
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "用户注册",
+        "operationId": "registerUser",
+        "responses": {
+          "201": {
+            "description": "注册成功",
+            "schema": {
+              "$ref": "#/definitions/UserResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "409": {
+            "$ref": "#/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "创建读者账号。用户名和邮箱必须唯一，新账号默认角色为 READER、状态为 ACTIVE。",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "请求参数",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RegisterRequest"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "用户登录",
+        "operationId": "login",
+        "responses": {
+          "200": {
+            "description": "登录成功",
+            "schema": {
+              "$ref": "#/definitions/AuthResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          },
+          "429": {
+            "$ref": "#/responses/TooManyRequests"
+          }
+        },
+        "description": "使用用户名或邮箱登录，返回访问令牌、刷新令牌和当前用户信息。",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "请求参数",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/LoginRequest"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "刷新访问令牌",
+        "operationId": "refreshAccessToken",
+        "responses": {
+          "200": {
+            "description": "刷新成功",
+            "schema": {
+              "$ref": "#/definitions/TokenResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "使用未过期且未撤销的刷新令牌获取一组新令牌。",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "请求参数",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RefreshTokenRequest"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "退出登录",
+        "operationId": "logout",
+        "responses": {
+          "200": {
+            "description": "退出成功",
+            "schema": {
+              "$ref": "#/definitions/BaseResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "撤销当前刷新令牌。",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "请求参数",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/LogoutRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/api/users/profile": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "summary": "获取当前用户资料",
+        "operationId": "getCurrentUserProfile",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "schema": {
+              "$ref": "#/definitions/UserResponse"
+            }
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "User"
+        ],
+        "summary": "修改当前用户资料",
+        "operationId": "updateCurrentUserProfile",
+        "responses": {
+          "200": {
+            "description": "修改成功",
+            "schema": {
+              "$ref": "#/definitions/UserResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "允许修改昵称、邮箱、手机号和头像地址；用户名、角色和状态不可由本人修改。",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "请求参数",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UserProfileUpdateRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/api/users/profile/password": {
+      "put": {
+        "tags": [
+          "User"
+        ],
+        "summary": "修改当前用户密码",
+        "operationId": "changeCurrentUserPassword",
+        "responses": {
+          "200": {
+            "description": "密码修改成功",
+            "schema": {
+              "$ref": "#/definitions/BaseResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/responses/UnprocessableEntity"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "修改成功后撤销该用户已有刷新令牌，要求重新登录。",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "请求参数",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/PasswordChangeRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/api/users": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "summary": "分页查询用户",
+        "operationId": "listUsers",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "schema": {
+              "$ref": "#/definitions/UserPageResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/parameters/PageParam"
+          },
+          {
+            "$ref": "#/parameters/SizeParam"
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "description": "按用户名、昵称、邮箱或手机号搜索",
+            "required": false,
+            "type": "string",
+            "maxLength": 100
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "READER",
+              "LIBRARIAN",
+              "ADMIN"
+            ]
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED",
+              "LOCKED"
+            ]
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "default": "createdAt,desc"
+          }
+        ],
+        "x-roles": [
+          "ADMIN"
+        ]
+      }
+    },
+    "/api/users/{id}": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "summary": "获取用户详情",
+        "operationId": "getUserById",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "schema": {
+              "$ref": "#/definitions/UserResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "用户 ID",
+            "required": true,
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        ],
+        "x-roles": [
+          "ADMIN"
+        ]
+      }
+    },
+    "/api/users/{id}/status": {
+      "put": {
+        "tags": [
+          "User"
+        ],
+        "summary": "修改用户角色或状态",
+        "operationId": "updateUserAccess",
+        "responses": {
+          "200": {
+            "description": "修改成功",
+            "schema": {
+              "$ref": "#/definitions/UserResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "管理员不能禁用当前账号，也不能移除系统中最后一个管理员。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "用户 ID",
+            "required": true,
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "description": "请求参数",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UserAccessUpdateRequest"
+            }
+          }
+        ],
+        "x-roles": [
+          "ADMIN"
+        ]
+      }
+    },
+    "/api/categories": {
+      "get": {
+        "tags": [
+          "Category"
+        ],
+        "summary": "查询图书分类列表",
+        "operationId": "listCategories",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "schema": {
+              "$ref": "#/definitions/CategoryListResponse"
+            }
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "parameters": [
+          {
+            "name": "keyword",
+            "in": "query",
+            "description": "按分类名称搜索",
+            "required": false,
+            "type": "string",
+            "maxLength": 50
+          },
+          {
+            "name": "includeDisabled",
+            "in": "query",
+            "description": "是否包含已停用分类；普通读者固定为 false",
+            "required": false,
+            "type": "boolean",
+            "default": false
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Category"
+        ],
+        "summary": "创建图书分类",
+        "operationId": "createCategory",
+        "responses": {
+          "201": {
+            "description": "创建成功",
+            "schema": {
+              "$ref": "#/definitions/CategoryResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "请求参数",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CategoryCreateRequest"
+            }
+          }
+        ],
+        "x-roles": [
+          "LIBRARIAN",
+          "ADMIN"
+        ]
+      }
+    },
+    "/api/categories/{id}": {
+      "get": {
+        "tags": [
+          "Category"
+        ],
+        "summary": "获取分类详情",
+        "operationId": "getCategoryById",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "schema": {
+              "$ref": "#/definitions/CategoryResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "分类 ID",
+            "required": true,
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Category"
+        ],
+        "summary": "修改图书分类",
+        "operationId": "updateCategory",
+        "responses": {
+          "200": {
+            "description": "修改成功",
+            "schema": {
+              "$ref": "#/definitions/CategoryResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "分类 ID",
+            "required": true,
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "description": "请求参数",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CategoryUpdateRequest"
+            }
+          }
+        ],
+        "x-roles": [
+          "LIBRARIAN",
+          "ADMIN"
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Category"
+        ],
+        "summary": "删除图书分类",
+        "operationId": "deleteCategory",
+        "responses": {
+          "204": {
+            "description": "删除成功，无响应体"
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "仅允许删除未关联图书的分类。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "分类 ID",
+            "required": true,
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        ],
+        "x-roles": [
+          "LIBRARIAN",
+          "ADMIN"
+        ]
+      }
+    },
+    "/api/books": {
+      "get": {
+        "tags": [
+          "Book"
+        ],
+        "summary": "分页检索图书",
+        "operationId": "listBooks",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "schema": {
+              "$ref": "#/definitions/BookPageResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/parameters/PageParam"
+          },
+          {
+            "$ref": "#/parameters/SizeParam"
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "description": "按书名、作者、ISBN 或出版社搜索",
+            "required": false,
+            "type": "string",
+            "maxLength": 100
+          },
+          {
+            "name": "categoryId",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          {
+            "name": "availability",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "AVAILABLE",
+              "UNAVAILABLE"
+            ]
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "普通读者只能查询 ACTIVE",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ]
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "default": "createdAt,desc"
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Book"
+        ],
+        "summary": "新增图书",
+        "operationId": "createBook",
+        "responses": {
+          "201": {
+            "description": "创建成功",
+            "schema": {
+              "$ref": "#/definitions/BookResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "请求参数",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/BookCreateRequest"
+            }
+          }
+        ],
+        "x-roles": [
+          "LIBRARIAN",
+          "ADMIN"
+        ]
+      }
+    },
+    "/api/books/{id}": {
+      "get": {
+        "tags": [
+          "Book"
+        ],
+        "summary": "获取图书详情",
+        "operationId": "getBookById",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "schema": {
+              "$ref": "#/definitions/BookResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "图书 ID",
+            "required": true,
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Book"
+        ],
+        "summary": "修改图书资料",
+        "operationId": "updateBook",
+        "responses": {
+          "200": {
+            "description": "修改成功",
+            "schema": {
+              "$ref": "#/definitions/BookResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "书目信息与库存分开修改，库存变化请使用库存调整接口。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "图书 ID",
+            "required": true,
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "description": "请求参数",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/BookUpdateRequest"
+            }
+          }
+        ],
+        "x-roles": [
+          "LIBRARIAN",
+          "ADMIN"
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Book"
+        ],
+        "summary": "下架并软删除图书",
+        "operationId": "deleteBook",
+        "responses": {
+          "204": {
+            "description": "删除成功，无响应体"
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "存在未完成借阅记录时不允许删除，历史借阅记录保留书名和 ISBN 快照。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "图书 ID",
+            "required": true,
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        ],
+        "x-roles": [
+          "LIBRARIAN",
+          "ADMIN"
+        ]
+      }
+    },
+    "/api/books/{id}/stock": {
+      "patch": {
+        "tags": [
+          "Book"
+        ],
+        "summary": "调整图书库存",
+        "operationId": "adjustBookStock",
+        "responses": {
+          "200": {
+            "description": "库存调整成功",
+            "schema": {
+              "$ref": "#/definitions/BookResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/responses/UnprocessableEntity"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "通过正负变更量调整总库存；调整后总库存不得小于当前已借出数量，并记录库存流水。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "图书 ID",
+            "required": true,
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "description": "请求参数",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/StockAdjustRequest"
+            }
+          }
+        ],
+        "x-roles": [
+          "LIBRARIAN",
+          "ADMIN"
+        ]
+      }
+    },
+    "/api/orders": {
+      "get": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "分页查询全部借阅单",
+        "operationId": "listOrders",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "schema": {
+              "$ref": "#/definitions/OrderPageResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/parameters/PageParam"
+          },
+          {
+            "$ref": "#/parameters/SizeParam"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "借阅单状态",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "BORROWED",
+              "RETURN_REQUESTED",
+              "RETURNED",
+              "CANCELLED",
+              "OVERDUE"
+            ]
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "description": "按借阅单号、用户名、书名或 ISBN 搜索",
+            "required": false,
+            "type": "string",
+            "maxLength": 100
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "创建时间起点，ISO 8601",
+            "required": false,
+            "type": "string",
+            "format": "date-time"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "创建时间终点，ISO 8601",
+            "required": false,
+            "type": "string",
+            "format": "date-time"
+          }
+        ],
+        "x-roles": [
+          "LIBRARIAN",
+          "ADMIN"
+        ]
+      }
+    },
+    "/api/orders/mine": {
+      "get": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "分页查询我的借阅记录",
+        "operationId": "listMyOrders",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "schema": {
+              "$ref": "#/definitions/OrderPageResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/parameters/PageParam"
+          },
+          {
+            "$ref": "#/parameters/SizeParam"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "借阅单状态",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "BORROWED",
+              "RETURN_REQUESTED",
+              "RETURNED",
+              "CANCELLED",
+              "OVERDUE"
+            ]
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "description": "按借阅单号、书名或 ISBN 搜索",
+            "required": false,
+            "type": "string",
+            "maxLength": 100
+          }
+        ]
+      }
+    },
+    "/api/orders/reserve": {
+      "post": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "预约借阅图书",
+        "operationId": "reserveBook",
+        "responses": {
+          "201": {
+            "description": "预约成功",
+            "schema": {
+              "$ref": "#/definitions/OrderResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/responses/UnprocessableEntity"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "创建 PENDING 状态预约单并锁定 1 本库存。同一用户对同一本书不能存在重复未完成借阅单。",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "请求参数",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ReserveRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/api/orders/{id}": {
+      "get": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "获取借阅单详情",
+        "operationId": "getOrderById",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "schema": {
+              "$ref": "#/definitions/OrderResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "读者仅能查看自己的借阅单，管理员可查看全部。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "借阅单 ID",
+            "required": true,
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        ]
+      }
+    },
+    "/api/orders/{id}/cancel": {
+      "put": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "取消预约",
+        "operationId": "cancelReservation",
+        "responses": {
+          "200": {
+            "description": "取消成功",
+            "schema": {
+              "$ref": "#/definitions/OrderResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "仅借阅单所有者可取消 PENDING 或 APPROVED 状态，取消后释放锁定库存。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "借阅单 ID",
+            "required": true,
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        ]
+      }
+    },
+    "/api/orders/{id}/audit": {
+      "put": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "审核预约",
+        "operationId": "auditReservation",
+        "responses": {
+          "200": {
+            "description": "审核完成",
+            "schema": {
+              "$ref": "#/definitions/OrderResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/responses/UnprocessableEntity"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "仅 PENDING 状态可审核；拒绝时必须填写备注并释放库存。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "借阅单 ID",
+            "required": true,
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "description": "请求参数",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AuditRequest"
+            }
+          }
+        ],
+        "x-roles": [
+          "LIBRARIAN",
+          "ADMIN"
+        ]
+      }
+    },
+    "/api/orders/{id}/checkout": {
+      "put": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "确认借出图书",
+        "operationId": "checkoutBook",
+        "responses": {
+          "200": {
+            "description": "借出成功",
+            "schema": {
+              "$ref": "#/definitions/OrderResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/responses/UnprocessableEntity"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "将 APPROVED 变为 BORROWED；未提供 dueAt 时按系统借阅期限计算。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "借阅单 ID",
+            "required": true,
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "description": "请求参数",
+            "required": false,
+            "schema": {
+              "$ref": "#/definitions/CheckoutRequest"
+            }
+          }
+        ],
+        "x-roles": [
+          "LIBRARIAN",
+          "ADMIN"
+        ]
+      }
+    },
+    "/api/orders/{id}/return": {
+      "put": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "发起还书",
+        "operationId": "requestBookReturn",
+        "responses": {
+          "200": {
+            "description": "还书申请已提交",
+            "schema": {
+              "$ref": "#/definitions/OrderResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "借阅单所有者将 BORROWED 或 OVERDUE 变为 RETURN_REQUESTED。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "借阅单 ID",
+            "required": true,
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "description": "请求参数",
+            "required": false,
+            "schema": {
+              "$ref": "#/definitions/ReturnRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/api/orders/{id}/confirm-return": {
+      "put": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "验收归还图书",
+        "operationId": "confirmBookReturn",
+        "responses": {
+          "200": {
+            "description": "归还确认成功",
+            "schema": {
+              "$ref": "#/definitions/OrderResponse"
+            }
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/responses/UnprocessableEntity"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "确认后恢复可用库存；图书遗失时不恢复库存。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "借阅单 ID",
+            "required": true,
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "description": "请求参数",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ConfirmReturnRequest"
+            }
+          }
+        ],
+        "x-roles": [
+          "LIBRARIAN",
+          "ADMIN"
+        ]
+      }
+    },
+    "/api/dashboard/summary": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "获取管理端统计概览",
+        "operationId": "getDashboardSummary",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "schema": {
+              "$ref": "#/definitions/DashboardResponse"
+            }
+          },
+          "401": {
+            "$ref": "#/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        },
+        "description": "返回图书、用户、待审核、借出和逾期数量。",
+        "x-roles": [
+          "LIBRARIAN",
+          "ADMIN"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "BaseResponse": {
+      "type": "object",
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32",
+          "example": 200
+        },
+        "message": {
+          "type": "string",
+          "example": "success"
+        },
+        "data": {
+          "type": "object",
+          "description": "无业务数据时为 null",
+          "x-nullable": true
+        }
+      }
+    },
+    "ErrorDetail": {
+      "type": "object",
+      "required": [
+        "field",
+        "message"
+      ],
+      "properties": {
+        "field": {
+          "type": "string",
+          "example": "email"
+        },
+        "message": {
+          "type": "string",
+          "example": "邮箱格式不正确"
+        }
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "timestamp"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32",
+          "example": 400
+        },
+        "message": {
+          "type": "string",
+          "example": "请求参数校验失败"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ErrorDetail"
+          }
+        },
+        "requestId": {
+          "type": "string",
+          "example": "req_01J4N8Z7YJ7M9Z4C6K2Q"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "example": "2026-08-06T12:00:00+08:00"
+        }
+      }
+    },
+    "RegisterRequest": {
+      "type": "object",
+      "required": [
+        "username",
+        "password",
+        "email"
+      ],
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 32,
+          "pattern": "^[A-Za-z0-9_]+$",
+          "example": "reader_001"
+        },
+        "password": {
+          "type": "string",
+          "format": "password",
+          "minLength": 8,
+          "maxLength": 64,
+          "example": "Book@2026"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 100,
+          "example": "reader@example.com"
+        },
+        "nickname": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50,
+          "example": "爱读书的小李"
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 20,
+          "example": "13800138000"
+        }
+      }
+    },
+    "LoginRequest": {
+      "type": "object",
+      "required": [
+        "account",
+        "password"
+      ],
+      "properties": {
+        "account": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 100,
+          "description": "用户名或邮箱",
+          "example": "reader_001"
+        },
+        "password": {
+          "type": "string",
+          "format": "password",
+          "minLength": 8,
+          "maxLength": 64,
+          "example": "Book@2026"
+        }
+      }
+    },
+    "RefreshTokenRequest": {
+      "type": "object",
+      "required": [
+        "refreshToken"
+      ],
+      "properties": {
+        "refreshToken": {
+          "type": "string",
+          "minLength": 20,
+          "example": "eyJhbGciOiJIUzI1NiJ9.refresh-token"
+        }
+      }
+    },
+    "LogoutRequest": {
+      "type": "object",
+      "required": [
+        "refreshToken"
+      ],
+      "properties": {
+        "refreshToken": {
+          "type": "string",
+          "minLength": 20,
+          "example": "eyJhbGciOiJIUzI1NiJ9.refresh-token"
+        }
+      }
+    },
+    "TokenData": {
+      "type": "object",
+      "required": [
+        "tokenType",
+        "accessToken",
+        "refreshToken",
+        "expiresIn"
+      ],
+      "properties": {
+        "tokenType": {
+          "type": "string",
+          "enum": [
+            "Bearer"
+          ],
+          "example": "Bearer"
+        },
+        "accessToken": {
+          "type": "string",
+          "example": "eyJhbGciOiJIUzI1NiJ9.access-token"
+        },
+        "refreshToken": {
+          "type": "string",
+          "example": "eyJhbGciOiJIUzI1NiJ9.refresh-token"
+        },
+        "expiresIn": {
+          "type": "integer",
+          "format": "int64",
+          "description": "访问令牌剩余有效秒数",
+          "example": 7200
+        }
+      }
+    },
+    "TokenResponse": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "example": 200
+        },
+        "message": {
+          "type": "string",
+          "example": "success"
+        },
+        "data": {
+          "$ref": "#/definitions/TokenData"
+        }
+      }
+    },
+    "AuthData": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TokenData"
+        },
+        {
+          "type": "object",
+          "required": [
+            "user"
+          ],
+          "properties": {
+            "user": {
+              "$ref": "#/definitions/User"
+            }
+          }
+        }
+      ]
+    },
+    "AuthResponse": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "example": 200
+        },
+        "message": {
+          "type": "string",
+          "example": "success"
+        },
+        "data": {
+          "$ref": "#/definitions/AuthData"
+        }
+      }
+    },
+    "User": {
+      "type": "object",
+      "required": [
+        "id",
+        "username",
+        "role",
+        "status",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64",
+          "readOnly": true,
+          "example": 1001
+        },
+        "username": {
+          "type": "string",
+          "readOnly": true,
+          "example": "reader_001"
+        },
+        "nickname": {
+          "type": "string",
+          "example": "爱读书的小李"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "example": "reader@example.com"
+        },
+        "phone": {
+          "type": "string",
+          "example": "13800138000"
+        },
+        "avatarUrl": {
+          "type": "string",
+          "format": "uri",
+          "example": "https://example.com/avatars/1001.png"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "READER",
+            "LIBRARIAN",
+            "ADMIN"
+          ],
+          "example": "READER"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "DISABLED",
+            "LOCKED"
+          ],
+          "example": "ACTIVE"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true,
+          "example": "2026-08-06T10:00:00+08:00"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true,
+          "example": "2026-08-06T11:30:00+08:00"
+        }
+      }
+    },
+    "UserProfileUpdateRequest": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "nickname": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 100
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "avatarUrl": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 500
+        }
+      }
+    },
+    "PasswordChangeRequest": {
+      "type": "object",
+      "required": [
+        "oldPassword",
+        "newPassword"
+      ],
+      "properties": {
+        "oldPassword": {
+          "type": "string",
+          "format": "password",
+          "minLength": 8,
+          "maxLength": 64
+        },
+        "newPassword": {
+          "type": "string",
+          "format": "password",
+          "minLength": 8,
+          "maxLength": 64,
+          "description": "不能与原密码相同"
+        }
+      }
+    },
+    "UserAccessUpdateRequest": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": [
+            "READER",
+            "LIBRARIAN",
+            "ADMIN"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "DISABLED",
+            "LOCKED"
+          ]
+        },
+        "remark": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "禁用、锁定或调整角色的原因"
+        }
+      }
+    },
+    "UserResponse": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "example": 200
+        },
+        "message": {
+          "type": "string",
+          "example": "success"
+        },
+        "data": {
+          "$ref": "#/definitions/User"
+        }
+      }
+    },
+    "UserPageData": {
+      "type": "object",
+      "required": [
+        "page",
+        "size",
+        "total",
+        "pages",
+        "records"
+      ],
+      "properties": {
+        "page": {
+          "type": "integer",
+          "example": 1
+        },
+        "size": {
+          "type": "integer",
+          "example": 10
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64",
+          "example": 125
+        },
+        "pages": {
+          "type": "integer",
+          "example": 13
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/User"
+          }
+        }
+      }
+    },
+    "UserPageResponse": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "example": 200
+        },
+        "message": {
+          "type": "string",
+          "example": "success"
+        },
+        "data": {
+          "$ref": "#/definitions/UserPageData"
+        }
+      }
+    },
+    "Category": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "status",
+        "bookCount"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64",
+          "readOnly": true,
+          "example": 1
+        },
+        "name": {
+          "type": "string",
+          "example": "计算机科学"
+        },
+        "description": {
+          "type": "string",
+          "example": "编程语言、软件工程与计算机基础"
+        },
+        "sortOrder": {
+          "type": "integer",
+          "format": "int32",
+          "example": 10
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "DISABLED"
+          ],
+          "example": "ACTIVE"
+        },
+        "bookCount": {
+          "type": "integer",
+          "format": "int64",
+          "readOnly": true,
+          "example": 36
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        }
+      }
+    },
+    "CategoryBrief": {
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64",
+          "example": 1
+        },
+        "name": {
+          "type": "string",
+          "example": "计算机科学"
+        }
+      }
+    },
+    "CategoryCreateRequest": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50,
+          "example": "计算机科学"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "sortOrder": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 0,
+          "default": 0
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "DISABLED"
+          ],
+          "default": "ACTIVE"
+        }
+      }
+    },
+    "CategoryUpdateRequest": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "sortOrder": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 0
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "DISABLED"
+          ]
+        }
+      }
+    },
+    "CategoryResponse": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "example": 200
+        },
+        "message": {
+          "type": "string",
+          "example": "success"
+        },
+        "data": {
+          "$ref": "#/definitions/Category"
+        }
+      }
+    },
+    "CategoryListResponse": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "example": 200
+        },
+        "message": {
+          "type": "string",
+          "example": "success"
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Category"
+          }
+        }
+      }
+    },
+    "Book": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "isbn",
+        "category",
+        "totalStock",
+        "availableStock",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64",
+          "readOnly": true,
+          "example": 1001
+        },
+        "title": {
+          "type": "string",
+          "example": "深入理解 Java 虚拟机"
+        },
+        "author": {
+          "type": "string",
+          "example": "周志明"
+        },
+        "isbn": {
+          "type": "string",
+          "example": "9787111641247"
+        },
+        "publisher": {
+          "type": "string",
+          "example": "机械工业出版社"
+        },
+        "publishDate": {
+          "type": "string",
+          "format": "date",
+          "example": "2019-12-01"
+        },
+        "description": {
+          "type": "string",
+          "example": "Java 虚拟机原理与实践。"
+        },
+        "coverUrl": {
+          "type": "string",
+          "format": "uri",
+          "example": "https://example.com/covers/1001.jpg"
+        },
+        "category": {
+          "$ref": "#/definitions/CategoryBrief"
+        },
+        "totalStock": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 0,
+          "example": 10
+        },
+        "availableStock": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 0,
+          "readOnly": true,
+          "example": 6
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "INACTIVE"
+          ],
+          "example": "ACTIVE"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        }
+      }
+    },
+    "BookCreateRequest": {
+      "type": "object",
+      "required": [
+        "title",
+        "author",
+        "isbn",
+        "categoryId",
+        "totalStock"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "author": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "isbn": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 20,
+          "description": "ISBN-10 或 ISBN-13，去除连字符后校验唯一性"
+        },
+        "publisher": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "publishDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "coverUrl": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 500
+        },
+        "categoryId": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1
+        },
+        "totalStock": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "INACTIVE"
+          ],
+          "default": "ACTIVE"
+        }
+      }
+    },
+    "BookUpdateRequest": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "author": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "isbn": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 20
+        },
+        "publisher": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "publishDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "coverUrl": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 500
+        },
+        "categoryId": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "INACTIVE"
+          ]
+        }
+      }
+    },
+    "StockAdjustRequest": {
+      "type": "object",
+      "required": [
+        "change",
+        "reason"
+      ],
+      "properties": {
+        "change": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": -100000,
+          "maximum": 100000,
+          "description": "正数入库、负数出库，不能为 0",
+          "example": 5
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 200,
+          "example": "采购入库"
+        }
+      }
+    },
+    "BookResponse": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "example": 200
+        },
+        "message": {
+          "type": "string",
+          "example": "success"
+        },
+        "data": {
+          "$ref": "#/definitions/Book"
+        }
+      }
+    },
+    "BookPageData": {
+      "type": "object",
+      "required": [
+        "page",
+        "size",
+        "total",
+        "pages",
+        "records"
+      ],
+      "properties": {
+        "page": {
+          "type": "integer",
+          "example": 1
+        },
+        "size": {
+          "type": "integer",
+          "example": 10
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64",
+          "example": 100
+        },
+        "pages": {
+          "type": "integer",
+          "example": 10
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Book"
+          }
+        }
+      }
+    },
+    "BookPageResponse": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "example": 200
+        },
+        "message": {
+          "type": "string",
+          "example": "success"
+        },
+        "data": {
+          "$ref": "#/definitions/BookPageData"
+        }
+      }
+    },
+    "ReserveRequest": {
+      "type": "object",
+      "required": [
+        "bookId"
+      ],
+      "properties": {
+        "bookId": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1,
+          "example": 1001
+        },
+        "remark": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "AuditRequest": {
+      "type": "object",
+      "required": [
+        "decision"
+      ],
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": [
+            "APPROVE",
+            "REJECT"
+          ],
+          "example": "APPROVE"
+        },
+        "remark": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "拒绝时必填"
+        }
+      }
+    },
+    "CheckoutRequest": {
+      "type": "object",
+      "properties": {
+        "dueAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "应还时间，必须晚于当前时间"
+        },
+        "remark": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "ReturnRequest": {
+      "type": "object",
+      "properties": {
+        "remark": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "读者提交的归还说明"
+        }
+      }
+    },
+    "ConfirmReturnRequest": {
+      "type": "object",
+      "required": [
+        "condition"
+      ],
+      "properties": {
+        "condition": {
+          "type": "string",
+          "enum": [
+            "GOOD",
+            "DAMAGED",
+            "LOST"
+          ],
+          "example": "GOOD"
+        },
+        "remark": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "损坏或遗失时必填"
+        }
+      }
+    },
+    "UserBrief": {
+      "type": "object",
+      "required": [
+        "id",
+        "username"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64",
+          "example": 1001
+        },
+        "username": {
+          "type": "string",
+          "example": "reader_001"
+        },
+        "nickname": {
+          "type": "string",
+          "example": "爱读书的小李"
+        }
+      }
+    },
+    "BookBrief": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "isbn"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64",
+          "example": 1001
+        },
+        "title": {
+          "type": "string",
+          "example": "深入理解 Java 虚拟机"
+        },
+        "isbn": {
+          "type": "string",
+          "example": "9787111641247"
+        },
+        "coverUrl": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "BorrowOrder": {
+      "type": "object",
+      "required": [
+        "id",
+        "orderNo",
+        "user",
+        "book",
+        "status",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64",
+          "readOnly": true,
+          "example": 8001
+        },
+        "orderNo": {
+          "type": "string",
+          "readOnly": true,
+          "example": "BOR202608060001"
+        },
+        "user": {
+          "$ref": "#/definitions/UserBrief"
+        },
+        "book": {
+          "$ref": "#/definitions/BookBrief"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PENDING",
+            "APPROVED",
+            "REJECTED",
+            "BORROWED",
+            "RETURN_REQUESTED",
+            "RETURNED",
+            "CANCELLED",
+            "OVERDUE"
+          ],
+          "example": "BORROWED"
+        },
+        "remark": {
+          "type": "string",
+          "example": "请保留到周末"
+        },
+        "auditRemark": {
+          "type": "string",
+          "example": "审核通过"
+        },
+        "returnCondition": {
+          "type": "string",
+          "enum": [
+            "GOOD",
+            "DAMAGED",
+            "LOST"
+          ],
+          "x-nullable": true
+        },
+        "reservedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "approvedAt": {
+          "type": "string",
+          "format": "date-time",
+          "x-nullable": true
+        },
+        "borrowedAt": {
+          "type": "string",
+          "format": "date-time",
+          "x-nullable": true
+        },
+        "dueAt": {
+          "type": "string",
+          "format": "date-time",
+          "x-nullable": true
+        },
+        "returnedAt": {
+          "type": "string",
+          "format": "date-time",
+          "x-nullable": true
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        }
+      }
+    },
+    "OrderResponse": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "example": 200
+        },
+        "message": {
+          "type": "string",
+          "example": "success"
+        },
+        "data": {
+          "$ref": "#/definitions/BorrowOrder"
+        }
+      }
+    },
+    "OrderPageData": {
+      "type": "object",
+      "required": [
+        "page",
+        "size",
+        "total",
+        "pages",
+        "records"
+      ],
+      "properties": {
+        "page": {
+          "type": "integer",
+          "example": 1
+        },
+        "size": {
+          "type": "integer",
+          "example": 10
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64",
+          "example": 50
+        },
+        "pages": {
+          "type": "integer",
+          "example": 5
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BorrowOrder"
+          }
+        }
+      }
+    },
+    "OrderPageResponse": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "example": 200
+        },
+        "message": {
+          "type": "string",
+          "example": "success"
+        },
+        "data": {
+          "$ref": "#/definitions/OrderPageData"
+        }
+      }
+    },
+    "DashboardSummary": {
+      "type": "object",
+      "required": [
+        "bookTitles",
+        "totalCopies",
+        "availableCopies",
+        "activeReaders",
+        "pendingOrders",
+        "borrowedOrders",
+        "overdueOrders"
+      ],
+      "properties": {
+        "bookTitles": {
+          "type": "integer",
+          "format": "int64",
+          "example": 520
+        },
+        "totalCopies": {
+          "type": "integer",
+          "format": "int64",
+          "example": 1680
+        },
+        "availableCopies": {
+          "type": "integer",
+          "format": "int64",
+          "example": 1320
+        },
+        "activeReaders": {
+          "type": "integer",
+          "format": "int64",
+          "example": 860
+        },
+        "pendingOrders": {
+          "type": "integer",
+          "format": "int64",
+          "example": 12
+        },
+        "borrowedOrders": {
+          "type": "integer",
+          "format": "int64",
+          "example": 348
+        },
+        "overdueOrders": {
+          "type": "integer",
+          "format": "int64",
+          "example": 9
+        }
+      }
+    },
+    "DashboardResponse": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "example": 200
+        },
+        "message": {
+          "type": "string",
+          "example": "success"
+        },
+        "data": {
+          "$ref": "#/definitions/DashboardSummary"
+        }
+      }
+    }
+  }
+}
