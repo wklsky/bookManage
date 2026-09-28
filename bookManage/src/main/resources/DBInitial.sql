@@ -76,9 +76,10 @@ CREATE TABLE `b_borrow_order` (
                                   `order_no` varchar(32) NOT NULL COMMENT '业务流水单号',
                                   `user_id` bigint NOT NULL COMMENT '借阅读者ID',
                                   `book_id` bigint NOT NULL COMMENT '借阅图书ID',
-                                  `status` varchar(20) NOT NULL DEFAULT 'PENDING' COMMENT '订单状态: PENDING, APPROVED, BORROWED, RETURNED, REJECTED',
+                                  `status` varchar(20) NOT NULL DEFAULT 'PENDING' COMMENT '订单状态: PENDING, APPROVED, REJECTED, BORROWED, RETURN_REQUESTED, RETURNED, CANCELLED, OVERDUE',
                                   `remark` varchar(500) DEFAULT NULL COMMENT '读者备注',
                                   `audit_remark` varchar(500) DEFAULT NULL COMMENT '管理员审核备注',
+                                  `return_remark` varchar(200) DEFAULT NULL COMMENT '读者发起归还时的说明',
                                   `return_condition` varchar(20) DEFAULT NULL COMMENT '归还验收状态: GOOD, DAMAGED, LOST',
                                   `reserved_at` datetime NOT NULL COMMENT '预约发起时间',
                                   `approved_at` datetime DEFAULT NULL COMMENT '审核通过时间',
@@ -112,5 +113,24 @@ CREATE TABLE `b_book_stock_log` (
                                     CONSTRAINT `fk_stock_book_id` FOREIGN KEY (`book_id`) REFERENCES `b_book` (`id`),
                                     CONSTRAINT `fk_stock_operator_id` FOREIGN KEY (`operator_id`) REFERENCES `sys_user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='图书库存变更流水表';
+
+-- ----------------------------
+-- 6. 刷新令牌表
+-- ----------------------------
+-- 刷新令牌需要服务端可主动失效（退出登录、重置密码），纯无状态 JWT 做不到，
+-- 因此落库保存并校验，避免为此额外引入 Redis 依赖。
+DROP TABLE IF EXISTS `sys_refresh_token`;
+CREATE TABLE `sys_refresh_token` (
+                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '记录唯一标识',
+                                     `user_id` bigint NOT NULL COMMENT '所属用户ID',
+                                     `token_id` varchar(64) NOT NULL COMMENT '刷新令牌 jti，唯一',
+                                     `revoked` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否已撤销: 0-有效, 1-已撤销',
+                                     `expires_at` datetime NOT NULL COMMENT '过期时间',
+                                     `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '签发时间',
+                                     PRIMARY KEY (`id`),
+                                     UNIQUE KEY `uk_token_id` (`token_id`),
+                                     KEY `idx_user_id` (`user_id`),
+                                     CONSTRAINT `fk_refresh_user_id` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='刷新令牌表';
 
 SET FOREIGN_KEY_CHECKS = 1;

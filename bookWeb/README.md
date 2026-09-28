@@ -119,7 +119,7 @@ server: {
 pnpm run dev
 
 # TypeScript 类型检查
-pnpmrun type-check
+pnpm run type-check
 
 # 代码检查并自动修复
 pnpm run lint
@@ -143,8 +143,14 @@ bookWeb/
 │  ├─ api/
 │  │  └─ client.ts         # Fetch 封装、令牌注入和自动刷新
 │  ├─ components/          # 布局、弹窗、分页和消息提示组件
+│  │  ├─ AppShell.vue      # 侧边栏布局与角色菜单
+│  │  ├─ BaseModal.vue     # 通用弹窗
+│  │  ├─ PaginationBar.vue # 分页条
+│  │  └─ ToastStack.vue    # 全局消息提示
 │  ├─ layout/
-│  │  └─ login/            # 登录和注册页面
+│  │  └─ login.vue         # 登录和注册页面
+│  ├─ assets/
+│  │  └─ svg/              # 手绘图标
 │  ├─ stores/
 │  │  ├─ auth.ts           # 用户认证状态
 │  │  └─ toast.ts          # 全局操作消息

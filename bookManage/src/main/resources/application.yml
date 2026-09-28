@@ -1,21 +1,37 @@
 server:
-  port: 8080 # 与我们在 Swagger 文档中定义的一致
+  port: 8080
 
 spring:
+  application:
+    name: book-manage
+  # 凭据一律从环境变量注入；本地开发时由 application-local.yml（已 gitignore）覆盖
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://81.70.93.58:3306/book_system?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
-    username: Library
-    password: dHMJpiB4mGeG4zte
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:book_system}?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:}
+  jackson:
+    time-zone: Asia/Shanghai
+    # 响应中不输出值为 null 的字段，使成功响应只含 code/message/data
+    default-property-inclusion: non_null
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
 
-  data:
-    redis:
-      host: 81.70.93.58
-      port: 6379
-      password: aq123456
-      database: 0
-
-mybatis-plus:
-  mapper-locations: classpath*:/mapper/**/*.xml # XML映射文件位置
+mybatis:
+  # 当前 Mapper 全部使用注解编写；保留该配置以便后续新增 XML 映射文件
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.example.bookmanage.entity
   configuration:
-    map-underscore-to-camel-case: true # 自动将数据库下划线字段转为驼峰属性 (如 created_at -> createdAt)
+    map-underscore-to-camel-case: true
+
+book:
+  jwt:
+    # HS256 要求密钥长度不少于 32 字节，生产环境必须通过 JWT_SECRET 注入
+    secret: ${JWT_SECRET:change-me-please-change-me-in-production-env}
+    access-token-ttl: 30m
+    refresh-token-ttl: 7d
+  borrow:
+    # 借出未指定应还时间时的默认借阅天数
+    default-days: 30
+  cors:
+    allowed-origins: http://localhost:5173,http://127.0.0.1:5173
