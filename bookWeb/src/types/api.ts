@@ -121,6 +121,39 @@ export interface DashboardSummary {
   overdueOrders: number
 }
 
+/** 站点主题取值由后端 SiteSettingKeys.THEMES 约束 */
+export type SiteTheme = 'DEFAULT' | 'DARK' | 'WARM'
+
+/** 站点前台展示配置，由管理后台维护 */
+export interface SiteSettings {
+  siteName: string
+  slogan: string
+  announcement: string
+  announcementEnabled: boolean
+  bannerImage: string
+  theme: SiteTheme
+  updatedAt?: string
+}
+
+/** 前台首页推荐位：由管理后台编排，冗余图书快照以省去逐条查书 */
+export interface FeaturedBook {
+  id: number
+  bookId: number
+  title: string
+  author: string
+  isbn: string
+  coverUrl?: string
+  bookStatus: BookStatus
+  totalStock: number
+  availableStock: number
+  position: number
+  enabled: boolean
+  remark?: string
+  createdBy: number
+  createdAt?: string
+  updatedAt?: string
+}
+
 export interface BookForm {
   title: string
   author: string

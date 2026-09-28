@@ -133,4 +133,64 @@ CREATE TABLE `sys_refresh_token` (
                                      CONSTRAINT `fk_refresh_user_id` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='刷新令牌表';
 
+-- ----------------------------
+-- 7. 前台首页推荐位表
+-- ----------------------------
+-- 推荐位独立于图书表，避免为"是否推荐"污染 b_book 的业务字段；
+-- 位置权重越小越靠前，由后台运营排序，前台只按 position 升序读取展示位。
+DROP TABLE IF EXISTS `b_featured_book`;
+CREATE TABLE `b_featured_book` (
+                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '推荐位唯一标识',
+                                   `book_id` bigint NOT NULL COMMENT '推荐图书ID',
+                                   `position` int NOT NULL DEFAULT '0' COMMENT '展示排序权重，越小越靠前',
+                                   `enabled` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否在前台展示: 0-隐藏, 1-展示',
+                                   `remark` varchar(200) DEFAULT NULL COMMENT '推荐语或内部备注',
+                                   `created_by` bigint NOT NULL COMMENT '创建人ID',
+                                   `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                   PRIMARY KEY (`id`),
+                                   UNIQUE KEY `uk_book_id` (`book_id`),
+                                   KEY `idx_position` (`position`),
+                                   CONSTRAINT `fk_featured_book_id` FOREIGN KEY (`book_id`) REFERENCES `b_book` (`id`) ON DELETE CASCADE,
+                                   CONSTRAINT `fk_featured_created_by` FOREIGN KEY (`created_by`) REFERENCES `sys_user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='前台首页推荐图书位表';
+
+-- ----------------------------
+-- 8. 站点前台展示配置表
+-- ----------------------------
+-- 配置项数量少、变更频率低且需要后台可视化编辑，采用键值表存放，
+-- 新增展示项时无需改表；键名由后端 SiteSettingKeys 白名单收敛，避免任意键写入。
+DROP TABLE IF EXISTS `sys_site_setting`;
+CREATE TABLE `sys_site_setting` (
+                                    `setting_key` varchar(64) NOT NULL COMMENT '配置项键',
+                                    `setting_value` text COMMENT '配置项值',
+                                    `remark` varchar(200) DEFAULT NULL COMMENT '配置项说明',
+                                    `updated_by` bigint DEFAULT NULL COMMENT '最近修改人ID',
+                                    `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                    PRIMARY KEY (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='站点前台展示配置表';
+
+-- ----------------------------
+-- 9. 管理员操作审计日志表
+-- ----------------------------
+-- 审计日志需要长期留存以追溯责任，因此不设外键：
+-- 若操作员账号被删除，级联删除会连带抹掉其历史操作记录，这与审计目的冲突。
+-- 同时冗余 operator_name，保证账号改名或删除后仍能还原当时的操作人。
+DROP TABLE IF EXISTS `sys_audit_log`;
+CREATE TABLE `sys_audit_log` (
+                                 `id` bigint NOT NULL AUTO_INCREMENT COMMENT '日志唯一标识',
+                                 `operator_id` bigint NOT NULL COMMENT '操作人ID',
+                                 `operator_name` varchar(64) DEFAULT NULL COMMENT '操作人账号快照',
+                                 `action` varchar(40) NOT NULL COMMENT '操作类型，见 AuditAction',
+                                 `target_type` varchar(40) NOT NULL COMMENT '操作对象类型，见 AuditTargetType',
+                                 `target_id` varchar(64) DEFAULT NULL COMMENT '操作对象标识',
+                                 `summary` varchar(500) DEFAULT NULL COMMENT '操作摘要',
+                                 `ip` varchar(64) DEFAULT NULL COMMENT '操作来源IP',
+                                 `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+                                 PRIMARY KEY (`id`),
+                                 KEY `idx_operator_id` (`operator_id`),
+                                 KEY `idx_action` (`action`),
+                                 KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='管理员操作审计日志表';
+
 SET FOREIGN_KEY_CHECKS = 1;

@@ -4,6 +4,8 @@
 
 仓库采用前后端分离结构：接口契约由根目录 [`swagger.json`](./swagger.json) 统一定义，前端已按契约完整实现，后端已按契约完成全部接口实现。
 
+在此之上另有一个**独立的管理后台** [`bookAdmin`](./bookAdmin/README.md)：面向图书管理员与系统管理员，负责前台展示位编排、站点展示配置、用户管理增强与操作审计，与面向读者的 `bookWeb` 彻底分离。
+
 ---
 
 ## 一、当前进度
@@ -11,13 +13,16 @@
 | 模块 | 状态 | 说明 |
 | --- | --- | --- |
 | 接口契约 `swagger.json` | ✅ 已完成 | 6 个 Tag、24 个路径、31 个操作，含全量请求/响应定义 |
-| 数据库脚本 | ✅ 已完成 | `DBInitial.sql`（6 张表）+ `generationData.py`（造数） |
-| 前端 `bookWeb` | ✅ 已完成 | 6 个业务页面、认证体系、请求层、类型定义齐备 |
-| 后端 `bookManage` | ✅ 已完成 | 31 个接口全部实现：认证、用户、分类、图书、借阅流程、统计概览 |
+| 数据库脚本 | ✅ 已完成 | `DBInitial.sql`（9 张表）+ `generationData.py`（造数） |
+| 前端 `bookWeb` | ✅ 已完成 | 6 个业务页面、认证体系、请求层、类型定义齐备；已接入推荐位与站点展示配置 |
+| 管理后台 `bookAdmin` | ✅ 已完成 | 独立后台应用：推荐位、馆藏、分类、借阅、用户、站点配置、审计日志 |
+| 后端 `bookManage` | ✅ 已完成 | 契约内 31 个接口全实现，另增管理后台专属接口（推荐位 / 站点配置 / 审计日志 / 用户管理增强） |
 
-> 一句话结论：**前后端已可联调**。后端采用 Spring Boot 4.1 + MyBatis 注解 + JWT 无状态认证，31 个接口与 `swagger.json` 逐项对齐。实施细节与遗留事项见 [开发指导书](./docs/development.md)。
+> 一句话结论：**前后端已可联调**。后端采用 Spring Boot 4.1 + MyBatis 注解 + JWT 无状态认证，31 个接口与 `swagger.json` 逐项对齐；另为独立管理后台 `bookAdmin` 新增 11 个运营接口与 3 张表。实施细节与遗留事项见 [开发指导书](./docs/development.md)。
 >
 > ⚠️ 联调前请先完成数据库建表并配置环境变量，见 [快速开始](#四快速开始)。
+>
+> 代码审查记录（后端 10 项、前端 7 项缺陷修复）见 [开发指导书 第 12 节](./docs/development.md#12-代码审查与修复记录2026-09-28)。
 
 ---
 
@@ -38,22 +43,22 @@ bookManage/                  # 仓库根目录
 │     │  ├─ BookManageApplication.java    # 启动类（@MapperScan）
 │     │  ├─ common/                       # R / PageResult / Paging / SqlSort / ErrorItem
 │     │  ├─ config/                       # SecurityConfig / WebMvcConfig / BookProperties
-│     │  ├─ controller/                   # 6 个 REST 控制器
+│     │  ├─ controller/                   # 12 个 REST 控制器（含管理后台专属）
 │     │  ├─ dto/{request,response}/       # 请求参数（record）与视图对象（record）
-│     │  ├─ entity/                       # 6 张表对应的实体
-│     │  ├─ enums/                        # 角色 / 状态 / 借阅状态等 6 个枚举
+│     │  ├─ entity/                       # 9 张表对应的实体
+│     │  ├─ enums/                        # 角色 / 状态 / 借阅状态 / 审计动作等 8 个枚举
 │     │  ├─ exception/                    # BizException / GlobalExceptionHandler
-│     │  ├─ mapper/                       # 6 个 MyBatis 注解式 Mapper
+│     │  ├─ mapper/                       # 9 个 MyBatis 注解式 Mapper
 │     │  ├─ security/                     # JWT 签发解析、认证过滤器、登录主体
-│     │  ├─ service/                      # 5 个业务服务
+│     │  ├─ service/                      # 9 个业务服务
 │     │  └─ support/ViewAssembler.java    # 实体 → 视图对象的集中转换
 │     ├─ main/resources/
 │     │  ├─ application.yml               # 端口 / 数据源 / JWT / CORS / MyBatis
 │     │  ├─ application-local.yml         # 本地数据库凭据（已被 gitignore）
-│     │  ├─ DBInitial.sql                 # 建表脚本（6 张表）
+│     │  ├─ DBInitial.sql                 # 建表脚本（9 张表）
 │     │  └─ generationData.py             # Python 造数脚本
 │     └─ test/java/.../BookManageApplicationTests.java
-└─ bookWeb/                     # 前端：Vue 3 工程
+├─ bookWeb/                     # 前台：Vue 3 工程（读者端，端口 5173）
    ├─ index.html                # 标题：阅界 · 图书管理系统
    ├─ vite.config.ts            # 别名 @ -> src，/api 代理到 8080
    ├─ package.json
@@ -67,6 +72,20 @@ bookManage/                  # 仓库根目录
       ├─ views/                 # Dashboard / Books / Orders / Categories / Users / Profile
       ├─ styles/main.css        # 原生 CSS 响应式样式
       └─ assets/svg/            # 10 个手绘图标
+└─ bookAdmin/                   # 管理后台：独立 Vue 3 工程（端口 5174）
+   ├─ index.html
+   ├─ vite.config.ts            # /api 代理到 8080，与前台端口错开
+   ├─ package.json
+   └─ src/
+      ├─ main.ts / App.vue      # 入口与页面容器（hash 路由 + 角色守卫）
+      ├─ api/client.ts          # fetch 封装，令牌键带 admin 前缀，与前台互不干扰
+      ├─ stores/{auth,toast}.ts # 后台登录态 / 全局消息
+      ├─ types/api.ts           # 后台使用的 TS 类型
+      ├─ components/            # AppShell / BaseModal / PaginationBar / ToastStack
+      ├─ layout/login.vue       # 仅管理员登录
+      ├─ views/                 # Dashboard / Featured / Books / Categories / Orders
+      │                         # / Users / SiteSettings / AuditLogs
+      └─ styles/main.css        # 深色侧边栏 + 浅色内容区的后台布局
 ```
 
 ---
@@ -103,7 +122,9 @@ bookManage/                  # 仓库根目录
 | 包管理 | pnpm |
 | Node | `^22.18.0` 或 `>=24.12.0` |
 
-> 前端**未安装 vue-router**，页面切换由 `App.vue` 基于 `location.hash` + 组件映射实现（`#/books`、`#/orders` 等）。
+> 前端**未安装 vue-router**，页面切换由 `App.vue` 基于 `location.hash` + 组件映射实现（`#/books`、`#/orders` 等）。两个前端工程都是这一套做法。
+
+> 版本差异：`bookWeb` 用 Vite 8 / Pinia 4 / TypeScript 6，而 `bookAdmin` 出于稳定性考虑固定在 Vite 6 / Pinia 3 / TypeScript 5.7。二者 API 用法一致，互不干扰；后续若统一升级，请以 `bookWeb` 为准一起对齐。
 
 ---
 
@@ -165,6 +186,16 @@ pnpm run dev
 
 默认 `http://localhost:5173`，`/api` 由 Vite 代理到 `http://localhost:8080`。
 
+### 6. 启动管理后台
+
+```powershell
+cd bookAdmin
+pnpm install
+pnpm run dev
+```
+
+默认 `http://localhost:5174`，与前台错开端口，同样把 `/api` 代理到 `http://localhost:8080`。后台仅允许 `LIBRARIAN` 与 `ADMIN` 登录，读者账号登录后会被拦在权限提示页。
+
 ---
 
 ## 五、接口契约
@@ -217,6 +248,24 @@ pnpm run dev
 | Order | PUT | `/api/orders/{id}/confirm-return` | 验收归还 |
 | Dashboard | GET | `/api/dashboard/summary` | 管理端统计概览 |
 
+### 管理后台专属接口（契约外，供 `bookAdmin` 使用）
+
+这些接口不在 `swagger.json` 中，是为管理后台新增的运营能力，路径统一以 `/api/admin` 开头：
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/featured-books` | 登录用户 | 前台首页推荐位（只返回已启用且图书已上架） |
+| GET | `/api/site-settings` | 登录用户 | 前台站点展示配置 |
+| GET | `/api/admin/featured-books` | LIBRARIAN / ADMIN | 推荐位分页列表 |
+| POST | `/api/admin/featured-books` | LIBRARIAN / ADMIN | 新增推荐位 |
+| PUT | `/api/admin/featured-books/{id}` | LIBRARIAN / ADMIN | 修改权重 / 显隐 / 推荐语 |
+| DELETE | `/api/admin/featured-books/{id}` | LIBRARIAN / ADMIN | 移除推荐位 |
+| GET | `/api/admin/site-settings` | ADMIN | 读取站点展示配置 |
+| PUT | `/api/admin/site-settings` | ADMIN | 修改站点名称、标语、公告、横幅、主题 |
+| GET | `/api/admin/audit-logs` | ADMIN | 操作审计日志分页查询 |
+| PUT | `/api/admin/users/{id}/password` | ADMIN | 重置他人密码并吊销其刷新令牌 |
+| GET | `/api/admin/users/{id}/orders` | LIBRARIAN / ADMIN | 查看指定用户的借阅记录 |
+
 ---
 
 ## 六、角色与权限
@@ -224,10 +273,12 @@ pnpm run dev
 | 角色 | 能力 |
 | --- | --- |
 | `READER` | 检索图书、预约、查看/取消自己的借阅单、发起还书、维护个人资料 |
-| `LIBRARIAN` | 馆藏与分类维护、库存调整、审核预约、确认借出、验收归还、查看全部借阅单、数据概览 |
-| `ADMIN` | `LIBRARIAN` 全部能力 + 用户查询、角色与状态管理 |
+| `LIBRARIAN` | 馆藏与分类维护、库存调整、审核预约、确认借出、验收归还、查看全部借阅单、数据概览、**首页推荐位维护**、**查看任一读者的借阅记录** |
+| `ADMIN` | `LIBRARIAN` 全部能力 + 用户查询、角色与状态管理、**重置他人密码**、**站点展示配置**、**操作审计日志** |
 
-契约中通过 `x-roles` 标注了受限接口（如用户管理、分类/图书写操作、审核借出、验收归还、数据概览等）。
+后台 `bookAdmin` 只接受 `LIBRARIAN` 与 `ADMIN` 登录；读者账号即使登录成功也会被拦在权限提示页。
+
+契约中通过 `x-roles` 标注了受限接口（如用户管理、分类/图书写操作、审核借出、验收归还、数据概览等）。上表中加粗部分是契约之外、为管理后台新增的能力，见 [管理后台专属接口](#管理后台专属接口契约外供-bookadmin-使用)。
 
 > 前端会按角色隐藏菜单与操作按钮，但**权限必须在后端接口层强制校验**，不能依赖前端控制。
 
@@ -263,9 +314,45 @@ pnpm run dev
 
 ---
 
-## 八、数据模型
+## 八、管理后台 `bookAdmin`
 
-`DBInitial.sql` 共 6 张表：
+后台是**独立应用**（端口 5174），与读者端 `bookWeb`（5173）彻底分离：各自独立登录、独立会话存储、独立部署。
+
+| 菜单 | 权限 | 能力 |
+| --- | --- | --- |
+| 数据概览 | LIBRARIAN / ADMIN | 馆藏册数、可借册数、借阅人数、待审核 / 借阅中 / 逾期 |
+| 首页推荐位 | LIBRARIAN / ADMIN | 编排前台首页展示哪些书、权重与显隐 |
+| 馆藏管理 | LIBRARIAN / ADMIN | 新增 / 编辑图书、上下架、库存调整并留痕 |
+| 分类管理 | LIBRARIAN / ADMIN | 维护前台分类导航 |
+| 借阅管理 | LIBRARIAN / ADMIN | 审核预约、确认借出、验收归还 |
+| 用户管理 | ADMIN | 角色与账号状态、重置他人密码、查看其借阅记录 |
+| 站点展示配置 | ADMIN | 站点名称、标语、公告、横幅、主题 |
+| 操作审计日志 | ADMIN | 按操作人 / 操作类型 / 关键词回溯 |
+
+### 后台如何作用于前台
+
+后台不直接渲染前台，而是通过「前台可读的配置」与图书自身的展示状态生效：
+
+| 后台操作 | 前台效果 | 读取接口 |
+| --- | --- | --- |
+| 编排推荐位 | 图书检索页顶部出现「编辑推荐」横滑区 | `GET /api/featured-books` |
+| 图书上下架 | 读者检索不到已下架图书 | `GET /api/books` |
+| 修改站点配置 | 站点标题、公告条、主题换肤 | `GET /api/site-settings` |
+| 重置用户密码 | 该用户所有设备被强制下线 | — |
+
+推荐位有两个硬性过滤：只有**已启用**且图书本身**处于上架状态**的条目才会露出，避免读者点进一个已下架的条目。
+
+### 为什么拆成两个应用
+
+前台与后台的使用人群、操作密度与界面形态差异很大。合在一个应用里靠角色切菜单，会让读者端背上后台的代码体积，也会让「谁能看」与「谁能改」的权限规则纠缠不清。拆开之后两边可以独立部署，后台还能单独做访问控制（例如只允许内网访问）。
+
+完整说明见 [`bookAdmin/README.md`](./bookAdmin/README.md)。
+
+---
+
+## 九、数据模型
+
+`DBInitial.sql` 共 9 张表：
 
 | 表 | 说明 | 关键字段 |
 | --- | --- | --- |
@@ -275,16 +362,20 @@ pnpm run dev
 | `b_borrow_order` | 借阅单 | `order_no` 唯一，`status`、各环节时间戳、`return_condition`、`return_remark` |
 | `b_book_stock_log` | 库存流水 | `change_amount`、`reason`、`operator_id` |
 | `sys_refresh_token` | 刷新令牌 | `token_id` 唯一，`revoked`、`expires_at` |
+| `b_featured_book` | 前台首页推荐位 | `book_id` 唯一，`position` 越小越靠前，`enabled` 控制显隐 |
+| `sys_site_setting` | 站点展示配置 | 键值结构，`setting_key` 主键，键名由后端白名单收敛 |
+| `sys_audit_log` | 管理员操作审计 | **不设外键**，冗余 `operator_name` 以保留操作人快照 |
 
-> 相对初始脚本的两处变更：
+> 相对初始脚本的变更：
 >
 > 1. 新增 `sys_refresh_token`：JWT 本身无法主动失效，退出登录与改密码需要服务端吊销能力，故落库保存。
 > 2. `b_borrow_order` 新增 `return_remark`：记录读者发起归还时的说明，与管理员的 `audit_remark` 区分。
 > 3. `b_borrow_order.status` 注释补全为 8 个状态（含 `RETURN_REQUESTED`、`CANCELLED`、`OVERDUE`）。其中 `OVERDUE` 不落库，由 `BORROWED` + `due_at` 过期推导。
+> 4. 新增 `b_featured_book` / `sys_site_setting` / `sys_audit_log` 三张表，服务于管理后台。审计日志刻意不设外键：操作员账号被删时级联删除会连带抹掉其历史操作记录，这与审计目的冲突。
 
 ---
 
-## 九、安全提示
+## 十、安全提示
 
 已修复：
 
@@ -301,11 +392,12 @@ pnpm run dev
 
 ---
 
-## 十、文档索引
+## 十一、文档索引
 
 | 文档 | 位置 |
 | --- | --- |
 | 接口契约 | [`swagger.json`](./swagger.json) |
 | 后端开发指导书 | [`docs/development.md`](./docs/development.md) |
-| 前端说明 | [`bookWeb/README.md`](./bookWeb/README.md) |
+| 前台说明 | [`bookWeb/README.md`](./bookWeb/README.md) |
+| 管理后台说明 | [`bookAdmin/README.md`](./bookAdmin/README.md) |
 | 建表脚本 | `bookManage/src/main/resources/DBInitial.sql` |

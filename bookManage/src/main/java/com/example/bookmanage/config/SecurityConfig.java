@@ -94,6 +94,31 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.GET, "/api/dashboard/summary").hasAnyRole("LIBRARIAN", "ADMIN")
 
+                        // 前台展示内容与推荐位：登录用户可读，写入一律归管理端
+                        .requestMatchers(HttpMethod.GET, "/api/site-settings").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/featured-books").authenticated()
+
+                        // 推荐位维护属于馆藏运营，图书管理员即可操作
+                        .requestMatchers(HttpMethod.GET, "/api/admin/featured-books").hasAnyRole("LIBRARIAN", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/admin/featured-books").hasAnyRole("LIBRARIAN", "ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/admin/featured-books/{id}")
+                        .hasAnyRole("LIBRARIAN", "ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/admin/featured-books/{id}")
+                        .hasAnyRole("LIBRARIAN", "ADMIN")
+
+                        // 站点文案与主题会影响整站观感，只交给系统管理员，避免图书管理员误改全局
+                        .requestMatchers(HttpMethod.GET, "/api/admin/site-settings").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/admin/site-settings").hasRole("ADMIN")
+
+                        // 审计日志可回溯他人操作，仅系统管理员可见
+                        .requestMatchers(HttpMethod.GET, "/api/admin/audit-logs").hasRole("ADMIN")
+
+                        // 重置他人密码会强制对方全部设备下线，风险高，仅系统管理员
+                        .requestMatchers(HttpMethod.PUT, "/api/admin/users/{id}/password").hasRole("ADMIN")
+                        // 查看某读者的借阅记录属于日常运营，图书管理员即可
+                        .requestMatchers(HttpMethod.GET, "/api/admin/users/{id}/orders")
+                        .hasAnyRole("LIBRARIAN", "ADMIN")
+
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

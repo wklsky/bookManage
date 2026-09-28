@@ -65,7 +65,10 @@ async function changePassword() {
       newPassword: passwordForm.newPassword,
     })
     Object.assign(passwordForm, { oldPassword: '', newPassword: '', confirmPassword: '' })
-    toast.success('密码已修改')
+    // 后端在改密成功后会吊销该用户全部刷新令牌，当前会话已无法续期。
+    // 必须主动退出，否则用户会在访问令牌过期后被无提示地踢回登录页，且不知道原因。
+    auth.reset()
+    toast.success('密码已修改，请使用新密码重新登录')
   } catch (error) {
     toast.error(error instanceof Error ? error.message : '密码修改失败')
   } finally {

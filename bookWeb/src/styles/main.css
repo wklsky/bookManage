@@ -29,6 +29,34 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
+
+/* 主题由管理后台「站点展示配置」下发，落到 <html> 上做整站换肤。
+   只覆盖与品牌色和底色相关的变量，避免为换肤重写整套组件样式。 */
+.theme-dark {
+  --canvas: #121826;
+  --surface: #1b2334;
+  --soft: #222c40;
+  --ink: #e7ecf5;
+  --muted: #97a3b8;
+  --line: #2c3750;
+  --primary: #7f9cf5;
+  --primary-dark: #6b86e0;
+  --primary-soft: #26304a;
+  --shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+.theme-warm {
+  --canvas: #fbf6ef;
+  --surface: #fffdf9;
+  --soft: #fdf5e9;
+  --ink: #3b2a1a;
+  --muted: #8a7360;
+  --line: #ecdfcd;
+  --primary: #b96a2c;
+  --primary-dark: #9c5722;
+  --primary-soft: #fbeedd;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -2169,6 +2197,111 @@ p {
     gap: 22px;
   }
 }
+/* ---------- 站点公告（由管理后台配置） ---------- */
+.site-announcement {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 11px 16px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--primary);
+  border-radius: 10px;
+  background: var(--primary-soft);
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.announce-tag {
+  flex: none;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 12px;
+}
+
+/* ---------- 首页推荐位（由管理后台编排） ---------- */
+.featured-strip {
+  margin-bottom: 22px;
+}
+
+.strip-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.strip-head h2 {
+  font-size: 17px;
+}
+
+.strip-head p {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.strip-scroll {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-snap-type: x mandatory;
+}
+
+.strip-card {
+  flex: none;
+  width: 176px;
+  scroll-snap-align: start;
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform 0.16s ease, border-color 0.16s ease;
+}
+
+.strip-card:hover,
+.strip-card:focus-visible {
+  transform: translateY(-3px);
+  border-color: var(--primary);
+  outline: none;
+}
+
+.strip-cover {
+  height: 108px;
+  border-radius: 10px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.strip-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.strip-card strong {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.strip-card small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.strip-remark {
+  color: var(--primary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *:before,

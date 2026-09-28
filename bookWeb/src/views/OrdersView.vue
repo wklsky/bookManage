@@ -61,18 +61,33 @@ function defaultDueDate() {
   return local.toISOString().slice(0, 16)
 }
 
+// 契约要求 from / to 为 ISO 8601 日期时间（format: date-time），而 <input type="date"> 只给出 YYYY-MM-DD。
+// 直接透传会被后端判为格式不合法并返回 400，因此在这里补齐时间部分：
+// 起点取当日 00:00:00，终点取当日 23:59:59，保证闭区间覆盖整天。
+function toDateTime(date: string, endOfDay = false) {
+  if (!date) return undefined
+  return `${date}T${endOfDay ? '23:59:59' : '00:00:00'}`
+}
+
 async function loadOrders(page = 1) {
   loading.value = true
   try {
     const path = auth.isReader ? '/api/orders/mine' : '/api/orders'
-    orders.value = await api.get<PageData<BorrowOrder>>(path, {
+    const data = await api.get<PageData<BorrowOrder>>(path, {
       page,
       size: 10,
       keyword: filters.keyword.trim(),
       status: filters.status,
-      from: auth.isManager ? filters.from : undefined,
-      to: auth.isManager ? filters.to : undefined,
+      from: auth.isManager ? toDateTime(filters.from) : undefined,
+      to: auth.isManager ? toDateTime(filters.to, true) : undefined,
     })
+    // 取消/验收后末页记录可能全部消失，总页数随之减少，此时当前页码已越界。
+    // 不回退到最后一页的话，用户会停在一个永远空白的页面上。
+    if (data.pages > 0 && page > data.pages) {
+      await loadOrders(data.pages)
+      return
+    }
+    orders.value = data
   } catch (error) {
     toast.error(error instanceof Error ? error.message : '借阅记录加载失败')
   } finally {
@@ -117,6 +132,12 @@ async function cancelOrder(order: BorrowOrder) {
 
 async function submitAction() {
   if (!selected.value || !action.value) return
+  // 详情弹窗与操作弹窗复用同一个表单，回车键会触发提交走到这里。
+  // 详情态没有要执行的动作，必须显式拦截，否则会静默关闭并误报成功。
+  if (action.value === 'detail') {
+    action.value = null
+    return
+  }
   actionLoading.value = true
   try {
     const id = selected.value.id

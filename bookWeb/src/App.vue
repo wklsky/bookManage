@@ -9,9 +9,14 @@ import OrdersView from '@/views/OrdersView.vue'
 import CategoriesView from '@/views/CategoriesView.vue'
 import UsersView from '@/views/UsersView.vue'
 import ProfileView from '@/views/ProfileView.vue'
+import { getAccessToken } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
+import { useSiteStore } from '@/stores/site'
+import { useToast } from '@/stores/toast'
 
 const auth = useAuthStore()
+const toast = useToast()
+const site = useSiteStore()
 const allPages: PageKey[] = ['dashboard', 'books', 'orders', 'categories', 'users', 'profile']
 const hashPage = window.location.hash.replace('#/', '') as PageKey
 const currentPage = ref<PageKey>(allPages.includes(hashPage) ? hashPage : 'books')
@@ -47,7 +52,9 @@ function syncHash() {
 }
 
 function handleExpired() {
+  // 令牌续期失败（刷新令牌过期或被吊销）时触发。不提示的话用户只会看到界面莫名跳回登录页。
   auth.reset()
+  toast.error('登录状态已失效，请重新登录')
 }
 
 watch(
@@ -61,6 +68,8 @@ watch(
 
 onMounted(() => {
   auth.loadProfile()
+  // 站点展示配置由管理后台维护，登录后才读得到；失败时前台沿用默认值
+  if (getAccessToken()) site.load()
   window.addEventListener('hashchange', syncHash)
   window.addEventListener('auth-expired', handleExpired)
 })

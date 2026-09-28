@@ -1,12 +1,14 @@
 ﻿<script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useSiteStore } from '@/stores/site'
 
 export type PageKey = 'dashboard' | 'books' | 'orders' | 'categories' | 'users' | 'profile'
 
 const props = defineProps<{ currentPage: PageKey }>()
 const emit = defineEmits<{ navigate: [page: PageKey] }>()
 const auth = useAuthStore()
+const site = useSiteStore()
 const mobileOpen = ref(false)
 
 const roleLabel = computed(
@@ -82,6 +84,10 @@ function navigate(page: PageKey) {
           {{ initials }}
         </button>
       </header>
+      <div v-if="site.announcement" class="site-announcement">
+        <span class="announce-tag">公告</span>
+        <span>{{ site.announcement }}</span>
+      </div>
       <slot />
     </main>
   </div>

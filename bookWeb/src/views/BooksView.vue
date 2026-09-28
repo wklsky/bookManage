@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { api } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/stores/toast'
-import type { Book, BookForm, Category, PageData } from '@/types/api'
+import type { Book, BookForm, Category, FeaturedBook, PageData } from '@/types/api'
 import BaseModal from '@/components/BaseModal.vue'
 import PaginationBar from '@/components/PaginationBar.vue'
 
@@ -52,8 +52,9 @@ function displayDate(value?: string) {
   return value ? new Intl.DateTimeFormat('zh-CN').format(new Date(value)) : '—'
 }
 
-function coverStyle(book: Book) {
-  const hue = (book.id * 47) % 360
+/** 用图书 ID 生成稳定的封面渐变色，没有封面图时也能区分不同书目 */
+function coverStyle(seed: { id: number }) {
+  const hue = (seed.id * 47) % 360
   return { background: `linear-gradient(145deg, hsl(${hue} 35% 38%), hsl(${hue + 28} 42% 25%))` }
 }
 
@@ -70,7 +71,7 @@ async function loadCategories() {
 async function loadBooks(page = 1) {
   loading.value = true
   try {
-    books.value = await api.get<PageData<Book>>('/api/books', {
+    const data = await api.get<PageData<Book>>('/api/books', {
       page,
       size: 10,
       keyword: filters.keyword.trim(),
@@ -78,6 +79,12 @@ async function loadBooks(page = 1) {
       availability: filters.availability,
       status: filters.status,
     })
+    // 下架末页最后一本后总页数减少，当前页码可能已越界；不回退会停在空白页
+    if (data.pages > 0 && page > data.pages) {
+      await loadBooks(data.pages)
+      return
+    }
+    books.value = data
   } catch (error) {
     toast.error(error instanceof Error ? error.message : '图书加载失败')
   } finally {
@@ -150,6 +157,17 @@ async function saveBook() {
     toast.error('请填写书名、作者、ISBN 和分类')
     return
   }
+  // 契约规定 totalStock 为 0~100000 的整数。v-model.number 在输入「1.5」时写入小数、清空输入时写入空串，
+  // 原校验完全没覆盖，小数会直接提交并被后端 400 拒绝，提示也不明确，故在此拦截。
+  if (
+    !editing.value &&
+    (!Number.isInteger(bookForm.totalStock) ||
+      bookForm.totalStock < 0 ||
+      bookForm.totalStock > 100000)
+  ) {
+    toast.error('馆藏册数需为 0 到 100000 之间的整数')
+    return
+  }
   actionLoading.value = true
   try {
     const payload = {
@@ -180,8 +198,14 @@ async function saveBook() {
 }
 
 async function adjustStock() {
-  if (!selected.value || !stockForm.change || !stockForm.reason.trim()) {
-    toast.error('请填写非零调整数量和原因')
+  // change 必须是非零整数：v-model.number 在输入「1.5」时写入小数、清空输入时写入空串，
+  // 原判断只挡住了 0 与空值，小数仍会被提交并触发后端 400。
+  if (!selected.value || !Number.isInteger(stockForm.change) || stockForm.change === 0) {
+    toast.error('调整数量需为非零整数')
+    return
+  }
+  if (!stockForm.reason.trim()) {
+    toast.error('请填写调整原因')
     return
   }
   actionLoading.value = true
@@ -229,7 +253,28 @@ async function removeBook(book: Book) {
   }
 }
 
-onMounted(() => Promise.all([loadCategories(), loadBooks()]))
+const featured = ref<FeaturedBook[]>([])
+
+async function loadFeatured() {
+  try {
+    featured.value = await api.get<FeaturedBook[]>('/api/featured-books')
+  } catch {
+    // 推荐位是增强展示项，读取失败时置空即可，不能影响检索主流程
+    featured.value = []
+  }
+}
+
+/** 推荐位只冗余图书 ID，仍需按 ID 取完整书目后才能复用详情弹窗 */
+async function openFeatured(item: FeaturedBook) {
+  try {
+    const book = await api.get<Book>(`/api/books/${item.bookId}`)
+    await openDetail(book)
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : '图书详情加载失败')
+  }
+}
+
+onMounted(() => Promise.all([loadCategories(), loadBooks(), loadFeatured()]))
 </script>
 
 <template>
@@ -244,6 +289,34 @@ onMounted(() => Promise.all([loadCategories(), loadBooks()]))
         ＋ 新增图书
       </button>
     </header>
+
+    <section v-if="featured.length" class="featured-strip">
+      <div class="strip-head">
+        <h2>编辑推荐</h2>
+        <p>管理后台编排的首页展示位</p>
+      </div>
+      <div class="strip-scroll">
+        <article
+          v-for="item in featured"
+          :key="item.id"
+          class="strip-card"
+          role="button"
+          tabindex="0"
+          @click="openFeatured(item)"
+          @keyup.enter="openFeatured(item)"
+        >
+          <div class="strip-cover" :style="coverStyle({ id: item.bookId })">
+            <img v-if="item.coverUrl" :src="item.coverUrl" :alt="item.title" />
+          </div>
+          <strong>{{ item.title }}</strong>
+          <small>{{ item.author }}</small>
+          <p v-if="item.remark" class="strip-remark">{{ item.remark }}</p>
+          <span class="status-badge" :class="item.availableStock > 0 ? 'badge-success' : 'badge-muted'">
+            {{ item.availableStock > 0 ? `可借 ${item.availableStock}` : '暂无库存' }}
+          </span>
+        </article>
+      </div>
+    </section>
 
     <section class="filter-bar">
       <form class="search-box" @submit.prevent="loadBooks(1)">

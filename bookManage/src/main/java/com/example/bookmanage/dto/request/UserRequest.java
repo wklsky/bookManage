@@ -43,4 +43,19 @@ public final class UserRequest {
     public record AccessUpdate(UserRole role, UserStatus status,
                                @Size(max = 200, message = "备注长度不能超过 200 个字符") String remark) {
     }
+
+    /**
+     * 管理员重置他人密码。
+     *
+     * <p>与 PasswordChange 的区别是不需要旧密码——管理员无法知道他人密码，
+     * 因此该操作必须由接口权限（ADMIN）而非凭据校验来把关，并强制吊销目标用户全部刷新令牌。
+     */
+    public record PasswordReset(
+            @NotBlank(message = "新密码不能为空")
+            @Size(min = 8, max = 64, message = "新密码长度需为 8 到 64 个字符")
+            String newPassword,
+
+            @Size(max = 200, message = "备注长度不能超过 200 个字符")
+            String remark) {
+    }
 }

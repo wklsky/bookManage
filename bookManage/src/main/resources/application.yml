@@ -34,4 +34,5 @@ book:
     # 借出未指定应还时间时的默认借阅天数
     default-days: 30
   cors:
-    allowed-origins: http://localhost:5173,http://127.0.0.1:5173
+    # bookWeb 默认 5173，bookAdmin 默认 5174，两者都需要直连后端调试
+    allowed-origins: http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174

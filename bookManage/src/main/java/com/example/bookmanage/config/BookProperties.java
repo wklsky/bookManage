@@ -35,7 +35,9 @@ public class BookProperties {
 
     @Data
     public static class Cors {
-        /** 允许跨域的前端来源白名单 */
-        private List<String> allowedOrigins = List.of("http://localhost:5173", "http://127.0.0.1:5173");
+        /** 允许跨域的前端来源白名单：bookWeb(5173) 与 bookAdmin(5174) 开发服务器 */
+        private List<String> allowedOrigins =
+                List.of("http://localhost:5173", "http://127.0.0.1:5173",
+                        "http://localhost:5174", "http://127.0.0.1:5174");
     }
 }

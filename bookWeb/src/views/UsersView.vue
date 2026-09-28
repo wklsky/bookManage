@@ -32,13 +32,19 @@ function displayDate(value?: string) {
 async function loadUsers(page = 1) {
   loading.value = true
   try {
-    users.value = await api.get<PageData<User>>('/api/users', {
+    const data = await api.get<PageData<User>>('/api/users', {
       page,
       size: 10,
       keyword: filters.keyword.trim(),
       role: filters.role,
       status: filters.status,
     })
+    // 末页最后一条被删掉后总页数减少，当前页码可能越界；不回退会停在空白页
+    if (data.pages > 0 && page > data.pages) {
+      await loadUsers(data.pages)
+      return
+    }
+    users.value = data
   } catch (error) {
     toast.error(error instanceof Error ? error.message : '用户加载失败')
   } finally {

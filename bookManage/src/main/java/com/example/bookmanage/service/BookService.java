@@ -9,11 +9,14 @@ import com.example.bookmanage.dto.response.BriefVO;
 import com.example.bookmanage.entity.Book;
 import com.example.bookmanage.entity.BookCategory;
 import com.example.bookmanage.entity.BookStockLog;
+import com.example.bookmanage.enums.AuditAction;
+import com.example.bookmanage.enums.AuditTargetType;
 import com.example.bookmanage.enums.BookStatus;
 import com.example.bookmanage.exception.BizException;
 import com.example.bookmanage.mapper.BookCategoryMapper;
 import com.example.bookmanage.mapper.BookMapper;
 import com.example.bookmanage.mapper.BookStockLogMapper;
+import com.example.bookmanage.mapper.FeaturedBookMapper;
 import com.example.bookmanage.security.SecurityUtils;
 import com.example.bookmanage.support.ViewAssembler;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +46,8 @@ public class BookService {
     private final BookMapper bookMapper;
     private final BookCategoryMapper categoryMapper;
     private final BookStockLogMapper stockLogMapper;
+    private final FeaturedBookMapper featuredBookMapper;
+    private final AuditLogService auditLogService;
 
     /**
      * @param manager 是否管理端调用。普通读者只能检索已上架图书，避免下架书仍然出现在检索结果中
@@ -129,7 +134,10 @@ public class BookService {
         if (request.coverUrl() != null) {
             book.setCoverUrl(request.coverUrl());
         }
-        if (request.status() != null) {
+        if (request.status() != null && request.status() != book.getStatus()) {
+            // 上下架直接决定图书是否对读者可见，属于前台展示控制，必须留痕以便追溯
+            auditLogService.record(AuditAction.BOOK_STATUS_UPDATE, AuditTargetType.BOOK, String.valueOf(id),
+                    "《" + book.getTitle() + "》" + book.getStatus() + " → " + request.status());
             book.setStatus(request.status());
         }
         bookMapper.update(book);
@@ -144,6 +152,11 @@ public class BookService {
             throw BizException.conflict("该图书仍有未完成的借阅记录，无法删除");
         }
         bookMapper.softDelete(id);
+        // 图书是软删除，外键 ON DELETE CASCADE 不会触发，推荐位必须由这里主动清理，
+        // 否则前台首页会残留指向已下架图书的展示位，读者点击即 404
+        featuredBookMapper.deleteByBookId(id);
+        auditLogService.record(AuditAction.BOOK_STATUS_UPDATE, AuditTargetType.BOOK, String.valueOf(id),
+                "下架并删除《" + book.getTitle() + "》");
     }
 
     @Transactional

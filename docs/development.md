@@ -12,13 +12,17 @@
 
 把 `bookManage` 从「启动类 + CORS」补齐为完整可运行的后端，使前端 6 个业务页面无需改动即可跑通全部流程。
 
+在此之上另有一个独立的管理后台 `bookAdmin`（见 [第 13 节](#13-管理后台-bookadmin2026-09-28)），它在契约之外新增了推荐位、站点展示配置、用户管理增强与操作审计四类运营能力，后端为此新增 3 张表与 11 个接口。
+
 ### 当前状态（2026-09-28 更新）
 
-P0–P6 已全部落地，工程可编译、Spring 上下文可正常启动。代码层面的验收项如下：
+P0–P6 已全部落地，P8（管理后台）主体完成，工程可编译、Spring 上下文可正常启动。代码层面的验收项如下：
 
 | 验收项 | 状态 | 说明 |
 | --- | --- | --- |
 | 31 个接口全部实现 | ✅ 代码完成 | 6 个 Controller，路径/方法/响应与 `swagger.json` 对齐 |
+| 管理后台 `bookAdmin` | ✅ 代码完成 | 独立 SPA，8 个页面；`vue-tsc` 类型检查与 `vite build` 均通过 |
+| 管理后台专属接口 | ✅ 代码完成 | 11 个接口，路径统一 `/api/admin` 前缀，权限按 LIBRARIAN / ADMIN 划分 |
 | 统一响应与错误结构 | ✅ 代码完成 | `R<T>` + `GlobalExceptionHandler`，错误带 `errors / requestId / timestamp` |
 | JWT 双令牌 | ✅ 代码完成 | 刷新令牌落库可撤销，轮换式续期 |
 | 角色鉴权 | ✅ 代码完成 | URL 层 `hasRole` + Service 层数据归属二次校验 |
@@ -42,6 +46,7 @@ P0–P6 已全部落地，工程可编译、Spring 上下文可正常启动。�
 | P5 | Order 模块（状态机，核心难点） | P4 | ✅ 完成 |
 | P6 | Dashboard 统计 | P5 | ✅ 完成 |
 | P7 | 联调、加固与前端增强（可选） | P6 | ⏳ 待进行 |
+| P8 | 独立管理后台 `bookAdmin` + 后端运营接口 | P6 | ✅ 完成 |
 
 下文各节保留完整的实施要点，作为**维护与排错时的参考**：业务规则、并发要求、易错点仍然有效，改动代码前请先对照。
 
@@ -326,11 +331,18 @@ BORROWED 且 due_at < now → OVERDUE            查询时动态推导
 cd bookManage
 .\mvnw.cmd spring-boot:run        # 监听 8080
 
-# 2. 前端
+# 2. 前台
 cd bookWeb
 pnpm install
 pnpm run dev                      # 监听 5173，/api 代理到 8080
+
+# 3. 管理后台（可选，与前台端口错开）
+cd bookAdmin
+pnpm install
+pnpm run dev                      # 监听 5174，/api 代理到 8080
 ```
+
+> 后台的 `/api` 走 Vite 代理，但后端 CORS 白名单仍须包含 `http://localhost:5174`（已在 `application.yml` 与 `BookProperties` 默认值中补齐），否则浏览器会拦跨域请求。
 
 ### 10.2 手工验收路径
 
@@ -341,14 +353,26 @@ pnpm run dev                      # 监听 5173，/api 代理到 8080
 5. 图书管理：新增 → 编辑 → 库存调整 → 删除（有未完成借阅时报错）
 6. 用户管理：改角色 / 禁用 → 被禁用用户请求返回 401/403
 7. 等待 accessToken 过期（或手动清空 `book_access_token`）→ 触发任意请求 → 观察是否自动刷新成功
+8. 后台用 `LIBRARIAN` 登录 → 添加推荐位 → 前台图书检索页顶部出现「编辑推荐」横滑区
+9. 后台把某本推荐图书**下架** → 前台该条目应立刻消失（推荐位要求「已启用 + 图书已上架」）
+10. 后台用 `ADMIN` 登录 → 改站点名称与公告 → 刷新前台，标题与公告条同步变化
+11. 后台重置某读者密码 → 该读者在另一浏览器访问令牌过期后应被登出，而**不能**继续续期
+12. 后台查看操作审计日志 → 上述推荐位、上下架、站点配置、重置密码四类操作均应有记录
+13. 用 `READER` 账号登录后台 → 应被拦在「没有后台访问权限」提示页
+
+> 第 8–13 条依赖新增的 3 张表（`b_featured_book` / `sys_site_setting` / `sys_audit_log`），**必须先重新执行 `DBInitial.sql`**，否则相关接口会报表不存在。
 
 ### 10.3 前端质量命令
+
+两个前端工程命令一致：
 
 ```powershell
 pnpm run type-check
 pnpm run lint
 pnpm run build
 ```
+
+`bookAdmin` 当前只提供 `type-check` 与 `build`（未配置 ESLint）。
 
 ---
 
@@ -365,6 +389,11 @@ pnpm run build
 | 7 | `bookWeb/README.md` 命令缺空格、目录树与实际文件不符 | `bookWeb/README.md` | ✅ 已修正 |
 | 8 | 契约未定义刷新令牌的存储载体，而退出/改密要求令牌可主动失效 | `swagger.json` | ✅ 新增 `sys_refresh_token` 表承接 |
 | 9 | 读者发起归还时的说明无字段承载 | `swagger.json`、`DBInitial.sql` | ✅ 新增 `b_borrow_order.return_remark` |
+| 10 | 管理后台需编排前台首页展示位，但图书表没有承载字段 | `DBInitial.sql` | ✅ 新增 `b_featured_book`（独立表，避免污染 `b_book` 业务字段） |
+| 11 | 站点公告 / 主题等展示项无处配置，且数量会随运营增加 | `DBInitial.sql` | ✅ 新增 `sys_site_setting` 键值表，键名由 `SiteSettingKeys` 白名单收敛 |
+| 12 | 管理员关键操作无留痕，无法追溯责任 | `DBInitial.sql` | ✅ 新增 `sys_audit_log`，刻意不设外键并冗余 `operator_name` |
+| 13 | 新增 3 张表未纳入造数脚本，演示环境无推荐位 / 站点配置数据 | `generationData.py` | ⏳ 待补 |
+| 14 | `bookAdmin` 依赖版本（Vite 6 / Pinia 3 / TS 5.7）低于 `bookWeb`（Vite 8 / Pinia 4 / TS 6） | `bookAdmin/package.json` | ⏳ 待统一，二者 API 用法一致、不影响运行 |
 
 ---
 
@@ -408,10 +437,104 @@ pnpm run build
 
 ---
 
-## 13. 前端可选增强（P7，非阻塞）
+### 12.4 前端修复
 
-- 引入 `vue-router` 替换 `App.vue` 中的 hash 手工切换，补齐 404 页与路由守卫。
-- 清理 `package.json` 中未启用的 `unplugin-auto-import` / `unplugin-vue-components`。
+前端虽已按契约实现，但审查中发现了若干真实缺陷，均已修复：
+
+| # | 严重度 | 问题 | 修复 |
+| --- | --- | --- | --- |
+| 1 | 严重 | **借阅日期筛选必然失败**。`OrdersView` 用 `<input type="date">`，取值是 `YYYY-MM-DD`，而契约里 `from` / `to` 是 `format: date-time`。后端 `OrderService.parseDateTime()` 先试 `LocalDateTime.parse` 再试 `OffsetDateTime.parse`，两者都无法解析纯日期，最终返回 400 | `OrdersView` 补齐时间部分：起点补 `T00:00:00`，终点补 `T23:59:59`，保证闭区间覆盖整天 |
+| 2 | 中 | **删除后分页越界**。删掉末页最后一条后总页数减少，前端仍用旧页码请求，列表永久空白且 PaginationBar 不会纠正 | 图书、借阅、用户三个列表页在加载后判断 `page > pages`，自动回退到最后一页 |
+| 3 | 中 | **改密后无提示被踢出**。后端改密成功会吊销该用户全部刷新令牌，但前端仍保留本地会话，用户会在访问令牌过期后被静默踢回登录页 | `ProfileView` 改密成功后主动 `auth.reset()`，并提示"请使用新密码重新登录" |
+| 4 | 中 | 令牌续期失败时 `App.vue` 只调用 `auth.reset()`，界面莫名跳回登录页 | `handleExpired` 增加 toast 提示"登录状态已失效" |
+| 5 | 低 | 库存调整数量未校验整数。`v-model.number` 在输入 `1.5` 时写入小数，原判断仅挡住 0 与空值，小数会提交并触发 400 | `BooksView` 改用 `Number.isInteger` 拦截，并把"数量"与"原因"的提示分开 |
+| 6 | 低 | 新增图书未校验 `totalStock`，契约为 0~100000 的整数 | `BooksView` 提交前拦截 |
+| 7 | 低 | 详情弹窗与操作弹窗共用同一个 `<form>`，回车提交会走到 `submitAction()`，在 `detail` 态下不发请求却静默关闭、误报成功 | `OrdersView` 对 `detail` 态显式拦截 |
+
+---
+
+## 13. 管理后台 bookAdmin（2026-09-28）
+
+后台独立成应用 `bookAdmin`，与前台 `bookWeb` 分离：独立端口（5174）、独立登录、独立令牌键（`book_admin_*`）。
+
+### 13.1 新增数据表
+
+| 表 | 用途 | 关键设计 |
+| --- | --- | --- |
+| `b_featured_book` | 前台首页推荐位 | `uk_book_id` 保证一本书只占一个位；`position` 越小越靠前 |
+| `sys_site_setting` | 站点展示配置 | 键值结构，新增展示项不必改表；键名由 `SiteSettingKeys` 白名单收敛 |
+| `sys_audit_log` | 操作审计日志 | **不设外键**：操作员被删时级联删除会抹掉其历史记录，与审计目的冲突；冗余 `operator_name` 以便账号改名后仍可追溯 |
+
+图书软删除时会同步清理其推荐位——`ON DELETE CASCADE` 对软删除不生效，不清会留下指向已下架图书的展示位。
+
+### 13.2 新增接口
+
+见 [README 管理后台接口表](../README.md#管理后台专属接口契约外供-bookadmin-使用)。
+
+几条权限划分的取舍：
+
+- 推荐位与馆藏归 `LIBRARIAN`：属于日常馆藏运营。
+- 站点文案、主题、审计日志归 `ADMIN`：前者影响整站观感，后者可回溯他人操作。
+- 重置他人密码归 `ADMIN`：会让对方全部设备下线，风险高；且管理员无从得知他人旧密码，安全边界完全由接口权限兜底，因此**必须**同时吊销目标用户的刷新令牌。
+
+路径统一挂 `/api/admin/users/{id}/password` 而不是 `/api/users/{id}/password`：后者会与 `/api/users/profile/password`（本人改密）产生模式歧义。
+
+### 13.3 审计的写入时机
+
+`AuditLogService.record()` 刻意使用**默认事务传播**而不是 `REQUIRES_NEW`：审计应与业务结果的成败保持一致，若业务回滚而审计单独提交，就会留下一条"发生过但没生效"的假记录。
+
+写入异常被吞掉并记录 error 日志——审计是旁路能力，它失败不该把正常的业务操作一起拖垮。
+
+### 13.4 已接入审计的动作
+
+推荐位增删改、站点配置修改、用户角色/状态调整、重置他人密码、图书上下架与删除。
+
+### 13.5 前台如何消费
+
+| 后台操作 | 前台表现 |
+| --- | --- |
+| 编排推荐位 | `bookWeb` 图书检索页顶部「编辑推荐」横滑区（`GET /api/featured-books`） |
+| 站点配置 | 站点标题、公告条、主题换肤（`GET /api/site-settings`） |
+
+推荐位有两个硬性过滤：**已启用** 且 图书本身 **已上架**，缺一不露出。
+
+### 13.6 新增 / 改动的后端文件
+
+新增：
+
+| 层 | 文件 |
+| --- | --- |
+| 实体 | `FeaturedBook`、`SiteSetting`、`AuditLog` |
+| 枚举 | `AuditAction`、`AuditTargetType` |
+| 常量 | `SiteSettingKeys`（配置键白名单，防止任意键写入） |
+| Mapper | `FeaturedBookMapper`、`SiteSettingMapper`、`AuditLogMapper` |
+| Service | `FeaturedBookService`、`SiteSettingService`、`AuditLogService` |
+| Controller | `FeaturedBookController`、`SiteSettingController`（前台只读）<br>`AdminFeaturedBooksController`、`AdminSiteSettingsController`、`AdminAuditLogsController`、`AdminUserController` |
+| DTO | `AdminRequest`（内部 record 集合）、`FeaturedBookVO`、`SiteSettingsVO`、`AuditLogVO` |
+| 请求体 | `UserRequest.PasswordReset` |
+
+改动：
+
+- `UserService`：新增 `resetPassword()`，并把原来的「只打日志」改为写审计。
+- `OrderService`：新增 `listByUser()`，与管理端列表共用查询，只是把 `userId` 固定。
+- `BookService`：上下架与删除写审计；删除时主动清理推荐位。
+- `SecurityConfig`：新增 12 条鉴权规则。
+- `application.yml` 与 `BookProperties`：CORS 白名单放行 5174。
+
+### 13.7 遗留事项
+
+- 新增 3 张表尚未纳入 `generationData.py` 造数脚本，演示环境没有推荐位 / 站点配置数据。
+- 站点配置的 `bannerImage`（首页横幅）目前只落库，前台尚未渲染横幅区块。
+- 审计日志无归档/清理策略，长期运行需评估表体积。
+- `bookAdmin` 未配置 ESLint，只有 `vue-tsc` 类型检查与 `vite build` 两道保障。
+
+---
+
+## 14. 前端可选增强（P7，非阻塞）
+
+- 引入 `vue-router` 替换两个前端里 `App.vue` 的 hash 手工切换，补齐 404 页与路由守卫。
+- 清理 `bookWeb/package.json` 中未启用的 `unplugin-auto-import` / `unplugin-vue-components`。
 - 补充 `src/utils/` 与组合式函数，把 `OrdersView.vue`、`BooksView.vue` 中超过 100 行的业务逻辑抽离为 `useOrders.ts`、`useBooks.ts`。
 - 图书封面改为可配置上传（当前仅 `coverUrl` 字符串）。
 - 逾期自动提醒 / 定时任务（`OVERDUE` 落库后可实现）。
+- 统一 `bookAdmin` 与 `bookWeb` 的依赖版本（当前后台固定在 Vite 6 / Pinia 3 / TS 5.7）。

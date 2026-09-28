@@ -77,6 +77,16 @@ public class OrderService {
         return PageResult.of(page, size, total, assemble(orders));
     }
 
+    /** 管理后台查看指定用户的借阅记录：与管理端列表共用查询，只是把 userId 固定下来 */
+    public PageResult<OrderVO> listByUser(int page, int size, Long userId, OrderStatus status, String keyword) {
+        Paging.check(page, size);
+        boolean overdueOnly = status == OrderStatus.OVERDUE;
+        long total = orderMapper.countPage(userId, status, overdueOnly, keyword, null, null);
+        List<BorrowOrder> orders = orderMapper.selectPage(userId, status, overdueOnly, keyword, null, null,
+                Paging.offset(page, size), size);
+        return PageResult.of(page, size, total, assemble(orders));
+    }
+
     public OrderVO getById(Long id) {
         BorrowOrder order = requireOrder(id);
         LoginUser user = SecurityUtils.currentUser();
