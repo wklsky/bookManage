@@ -538,3 +538,36 @@ pnpm run build
 - 图书封面改为可配置上传（当前仅 `coverUrl` 字符串）。
 - 逾期自动提醒 / 定时任务（`OVERDUE` 落库后可实现）。
 - 统一 `bookAdmin` 与 `bookWeb` 的依赖版本（当前后台固定在 Vite 6 / Pinia 3 / TS 5.7）。
+
+---
+
+## 15. 前后端契约对账（2026-09-28）
+
+对「后端 12 个 Controller」与「两个前端的全部调用点」做了一次逐项比对，确认路径、方法、请求参数、响应字段是否一致。
+
+### 15.1 结论
+
+路径与方法、请求体字段、响应字段**全部对齐**，未发现字段名或类型错配。逐类核对结果：
+
+| 检查项 | 结论 |
+| --- | --- |
+| 路径与方法 | ✅ 前端 55 处调用全部命中后端 42 个端点，无未定义路径 |
+| 分页结构 | ✅ 后端 `PageResult{page,size,total,pages,records}` 与前端 `PageData` 完全一致 |
+| 响应 VO vs TS 类型 | ✅ `UserVO`/`BookVO`/`OrderVO`/`CategoryVO`/`DashboardVO`/`FeaturedBookVO`/`SiteSettingsVO`/`AuditLogVO` 字段逐一对应 |
+| 请求 DTO | ✅ 必填约束与前端表单校验一致，无非空字段漏传 |
+| 枚举取值 | ✅ `decision` 用 `APPROVE`/`REJECT`（注意不是 `APPROVED`）；`condition` 用 `GOOD`/`DAMAGED`/`LOST`；主题 `DEFAULT`/`DARK`/`WARM` 与 `SiteSettingKeys.THEMES` 一致 |
+| 筛选空值 | ✅ 全部筛选项用空串 `''` 作「不限」，被 `toQuery` 丢弃，不会把 `ALL` 之类的非法值传给枚举参数 |
+| 日期格式 | ✅ `from`/`to` 补 `T00:00:00` / `T23:59:59`；`dueAt` 用 `toISOString()`；`publishDate` 为 `YYYY-MM-DD` |
+| 令牌与跨域 | ✅ 前后台令牌键分离（`book_*` / `book_admin_*`）；CORS 白名单含 5173 与 5174 |
+
+### 15.2 对账中发现并修复的数据同步问题
+
+| # | 严重度 | 问题 | 修复 |
+| --- | --- | --- | --- |
+| 1 | 中 | **改书后推荐位不刷新**。`bookWeb/BooksView` 只在 `onMounted` 拉一次推荐位，此后保存、库存调整、预约、下架都只刷列表。推荐位冗余了书名与库存快照，下架后顶部推荐区仍展示该书，读者点击即 404 | 新增 `refreshBooks(page)`，四个写操作后同时刷新列表与推荐位 |
+| 2 | 中 | **登录后站点配置不生效**。`App.vue` 仅在 `onMounted` 且已有令牌时才 `site.load()`。首次访问是未登录状态，登录成功后不再补拉，站点名称、公告条与主题会一直停在默认值 | 改为 `watch(auth.authenticated)`，登录成功后触发加载 |
+
+### 15.3 已知但不修的行为
+
+- 后台修改站点配置后，**前台需刷新页面才会生效**（配置在登录时拉取一次，未做轮询或推送）。
+- `OrderVO` 不返回读者的还书说明（`b_borrow_order.return_remark`）：契约未定义该出参，后端只落库不回显，属于有意为之，后续若要展示需同步改契约与 VO。

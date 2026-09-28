@@ -9,7 +9,6 @@ import OrdersView from '@/views/OrdersView.vue'
 import CategoriesView from '@/views/CategoriesView.vue'
 import UsersView from '@/views/UsersView.vue'
 import ProfileView from '@/views/ProfileView.vue'
-import { getAccessToken } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useSiteStore } from '@/stores/site'
 import { useToast } from '@/stores/toast'
@@ -66,10 +65,18 @@ watch(
   },
 )
 
+// 站点展示配置要登录后才读得到。首次进入往往是未登录状态（停在登录页），
+// 只在 onMounted 里读一次的话，登录成功后就再也没有机会补拉，
+// 整站的站点名称、公告条与主题会一直停在默认值，直到用户手动刷新页面。
+watch(
+  () => auth.authenticated,
+  (authenticated) => {
+    if (authenticated) site.load()
+  },
+)
+
 onMounted(() => {
   auth.loadProfile()
-  // 站点展示配置由管理后台维护，登录后才读得到；失败时前台沿用默认值
-  if (getAccessToken()) site.load()
   window.addEventListener('hashchange', syncHash)
   window.addEventListener('auth-expired', handleExpired)
 })

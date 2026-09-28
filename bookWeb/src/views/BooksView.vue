@@ -189,7 +189,7 @@ async function saveBook() {
       toast.success('图书已新增')
     }
     modal.value = null
-    await loadBooks(editing.value ? books.value.page : 1)
+    await refreshBooks(editing.value ? books.value.page : 1)
   } catch (error) {
     toast.error(error instanceof Error ? error.message : '保存失败')
   } finally {
@@ -216,7 +216,7 @@ async function adjustStock() {
     })
     toast.success('库存已调整')
     modal.value = null
-    await loadBooks(books.value.page)
+    await refreshBooks(books.value.page)
   } catch (error) {
     toast.error(error instanceof Error ? error.message : '库存调整失败')
   } finally {
@@ -234,7 +234,7 @@ async function reserveBook() {
     })
     toast.success('预约已提交，请留意审核状态')
     modal.value = null
-    await loadBooks(books.value.page)
+    await refreshBooks(books.value.page)
   } catch (error) {
     toast.error(error instanceof Error ? error.message : '预约失败')
   } finally {
@@ -247,7 +247,7 @@ async function removeBook(book: Book) {
   try {
     await api.delete(`/api/books/${book.id}`)
     toast.success('图书已下架')
-    await loadBooks(books.value.page)
+    await refreshBooks(books.value.page)
   } catch (error) {
     toast.error(error instanceof Error ? error.message : '删除失败')
   }
@@ -262,6 +262,17 @@ async function loadFeatured() {
     // 推荐位是增强展示项，读取失败时置空即可，不能影响检索主流程
     featured.value = []
   }
+}
+
+/**
+ * 图书发生写操作后同时刷新列表与推荐位。
+ *
+ * 推荐位冗余了书名、库存与上下架状态快照。只刷列表的话，管理端在本书页把某本书
+ * 下架或删除后，顶部推荐区仍会展示这本书（后端已清推荐位，前端却是旧快照），
+ * 读者点进去就会拿到 404；库存调整同理，可借册数会停在旧值。
+ */
+async function refreshBooks(page: number) {
+  await Promise.all([loadBooks(page), loadFeatured()])
 }
 
 /** 推荐位只冗余图书 ID，仍需按 ID 取完整书目后才能复用详情弹窗 */
