@@ -15,15 +15,20 @@ import type { DashboardSummary } from '@/types/api'
 const toast = useToastStore()
 const summary = ref<DashboardSummary | null>(null)
 
-/** 指标卡与后端字段的映射，顺序即展示顺序 */
+/**
+ * 指标卡与后端字段的映射，顺序即展示顺序。
+ *
+ * tone 决定卡片顶部的细色条：不参与装饰，而是把「需要处理的量」和
+ * 「正常库存量」在扫视时区分开——待审核与逾期是该被看见的，馆藏数是背景信息。
+ */
 const CARDS = [
-  { key: 'bookTitles', label: '馆藏书目' },
-  { key: 'totalCopies', label: '馆藏总册数' },
-  { key: 'availableCopies', label: '当前可借' },
-  { key: 'activeReaders', label: '借阅人数' },
-  { key: 'pendingOrders', label: '待审核预约' },
-  { key: 'borrowedOrders', label: '借阅中' },
-  { key: 'overdueOrders', label: '已逾期' },
+  { key: 'bookTitles', label: '馆藏书目', tone: 'tone-brand' },
+  { key: 'totalCopies', label: '馆藏总册数', tone: 'tone-brand' },
+  { key: 'availableCopies', label: '当前可借', tone: 'tone-success' },
+  { key: 'activeReaders', label: '借阅人数', tone: 'tone-info' },
+  { key: 'pendingOrders', label: '待审核预约', tone: 'tone-warning' },
+  { key: 'borrowedOrders', label: '借阅中', tone: 'tone-info' },
+  { key: 'overdueOrders', label: '已逾期', tone: 'tone-danger' },
 ] as const
 
 async function load() {
@@ -39,7 +44,7 @@ onMounted(load)
 
 <template>
   <div class="stat-grid">
-    <div v-for="card in CARDS" :key="card.key" class="stat-card">
+    <div v-for="card in CARDS" :key="card.key" class="stat-card" :class="card.tone">
       <span>{{ card.label }}</span>
       <strong>{{ summary ? (summary[card.key] ?? 0).toLocaleString() : '—' }}</strong>
     </div>
@@ -52,7 +57,7 @@ onMounted(load)
         <p>高频操作可直接从左侧菜单进入</p>
       </div>
     </div>
-    <ul style="margin: 0; padding-left: 18px; color: var(--ink-soft)">
+    <ul class="hint-list">
       <li>首页推荐位：决定前台首页展示哪些书，权重越小越靠前。</li>
       <li>馆藏管理：上下架直接决定图书对读者是否可见，会记入审计日志。</li>
       <li>借阅管理：审核预约、确认借出、验收归还。</li>

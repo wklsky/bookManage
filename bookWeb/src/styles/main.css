@@ -1,10 +1,11 @@
-﻿:root {
+:root {
   --canvas: #f3f6fa;
   --surface: #fff;
   --soft: #f8fafc;
   --ink: #17243a;
   --muted: #657187;
   --line: #dfe5ee;
+  --line-soft: #edf0f4;
   --primary: #315fbd;
   --primary-dark: #244a98;
   --primary-soft: #eaf0fd;
@@ -39,6 +40,7 @@
   --ink: #e7ecf5;
   --muted: #97a3b8;
   --line: #2c3750;
+  --line-soft: #232c40;
   --primary: #7f9cf5;
   --primary-dark: #6b86e0;
   --primary-soft: #26304a;
@@ -52,6 +54,7 @@
   --ink: #3b2a1a;
   --muted: #8a7360;
   --line: #ecdfcd;
+  --line-soft: #f3e9d9;
   --primary: #b96a2c;
   --primary-dark: #9c5722;
   --primary-soft: #fbeedd;
@@ -127,16 +130,16 @@ p {
   background: var(--primary-dark);
 }
 .btn-ghost {
-  background: #fff;
+  background: var(--surface);
   border-color: var(--line);
-  color: #40506a;
+  color: var(--ink);
 }
 .btn-ghost:hover:not(:disabled) {
   border-color: #b9c6d9;
   background: var(--soft);
 }
 .btn-danger-ghost {
-  background: #fff;
+  background: var(--surface);
   border-color: #efc9c7;
   color: var(--danger);
 }
@@ -165,7 +168,7 @@ p {
   font-size: 22px;
 }
 .icon-button:hover {
-  background: #edf1f6;
+  background: var(--soft);
 }
 .icon-button.danger {
   color: var(--danger);
@@ -195,7 +198,7 @@ p {
 .field {
   display: grid;
   gap: 7px;
-  color: #3c4960;
+  color: var(--ink);
   font-size: 13px;
   font-weight: 700;
 }
@@ -218,7 +221,7 @@ p {
   padding: 9px 12px;
   border: 1px solid #d6deea;
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   transition: 0.18s;
 }
@@ -238,8 +241,8 @@ p {
   border-color: var(--primary);
 }
 .field input:disabled {
-  background: #f1f4f8;
-  color: #7a8596;
+  background: var(--soft);
+  color: var(--muted);
 }
 .form-stack {
   display: grid;
@@ -330,7 +333,7 @@ p {
   min-height: 100vh;
   display: grid;
   grid-template-columns: minmax(380px, 1.05fr) minmax(470px, 0.95fr);
-  background: #eef2f7;
+  background: var(--soft);
 }
 .auth-story {
   position: relative;
@@ -462,12 +465,12 @@ p {
   border: 0;
   border-radius: 7px;
   background: transparent;
-  color: #667185;
+  color: var(--muted);
   font-weight: 700;
   cursor: pointer;
 }
 .auth-tabs button.active {
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   box-shadow: 0 2px 8px rgba(24, 41, 66, 0.1);
 }
@@ -487,7 +490,7 @@ p {
 .auth-note {
   margin: 22px 0 0;
   text-align: center;
-  color: #8993a2;
+  color: var(--muted);
   font-size: 12px;
 }
 .app-shell {
@@ -686,9 +689,9 @@ p {
   font-size: 14px;
 }
 .panel {
-  border: 1px solid #e2e7ef;
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #fff;
+  background: var(--surface);
   box-shadow: var(--shadow);
 }
 .panel-heading {
@@ -712,9 +715,9 @@ p {
   gap: 10px;
   margin-bottom: 20px;
   padding: 12px;
-  border: 1px solid #e0e6ef;
+  border: 1px solid var(--line);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 5px 16px rgba(27, 42, 68, 0.035);
 }
 .filter-bar.compact {
@@ -735,7 +738,7 @@ p {
   overflow: hidden;
   border: 1px solid #d6deea;
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
 }
 .search-box:focus-within {
   border-color: var(--primary);
@@ -743,7 +746,7 @@ p {
 }
 .search-box > span {
   padding-left: 12px;
-  color: #77849a;
+  color: var(--muted);
   font-size: 19px;
 }
 .search-box input {
@@ -759,8 +762,8 @@ p {
   align-self: stretch;
   padding: 0 14px;
   border: 0;
-  border-left: 1px solid #e2e7ef;
-  background: #f7f9fc;
+  border-left: 1px solid var(--line);
+  background: var(--soft);
   color: var(--primary);
   font-size: 13px;
   font-weight: 700;
@@ -795,9 +798,9 @@ p {
   gap: 15px;
   min-height: 122px;
   padding: 22px;
-  border: 1px solid #e3e8f0;
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #fff;
+  background: var(--surface);
   box-shadow: var(--shadow);
 }
 .stat-icon {
@@ -834,7 +837,7 @@ p {
   color: var(--purple);
 }
 .tone-indigo .stat-icon {
-  background: #eceefa;
+  background: var(--soft);
   color: #575fb0;
 }
 .dashboard-grid {
@@ -861,9 +864,9 @@ p {
   gap: 11px;
   min-height: 102px;
   padding: 15px;
-  border: 1px solid #e5e9f0;
+  border: 1px solid var(--line);
   border-radius: 11px;
-  background: #fafbfd;
+  background: var(--soft);
   text-align: left;
   cursor: pointer;
 }
@@ -951,7 +954,7 @@ p {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #d8dfe8;
+  background: var(--line);
 }
 .dot.available {
   background: var(--success);
@@ -968,15 +971,15 @@ p {
   column-gap: 12px;
   align-items: center;
   padding: 15px;
-  border: 1px solid #e3e8f0;
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fafbfd;
+  background: var(--soft);
   text-align: left;
   cursor: pointer;
 }
 .quick-actions button:hover {
   border-color: #b9c6da;
-  background: #f5f8fd;
+  background: var(--soft);
 }
 .quick-actions span {
   grid-row: 1 / span 2;
@@ -1008,9 +1011,9 @@ p {
   gap: 15px;
   min-height: 196px;
   padding: 15px;
-  border: 1px solid #e0e6ef;
+  border: 1px solid var(--line);
   border-radius: 13px;
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 5px 18px rgba(27, 42, 68, 0.045);
   transition: 0.2s;
 }
@@ -1100,7 +1103,7 @@ p {
   color: var(--success);
 }
 .status-muted {
-  color: #8d96a4;
+  color: var(--muted);
 }
 .book-title {
   display: -webkit-box;
@@ -1142,7 +1145,7 @@ p {
   height: 3px;
   overflow: hidden;
   border-radius: 3px;
-  background: #e7ebf1;
+  background: var(--line);
 }
 .stock-line > i b {
   display: block;
@@ -1236,7 +1239,7 @@ p {
 }
 .description {
   margin: 0;
-  color: #556176;
+  color: var(--ink);
   font-size: 13px;
   line-height: 1.75;
 }
@@ -1298,9 +1301,9 @@ p {
   display: flex;
   flex-direction: column;
   padding: 20px;
-  border: 1px solid #e0e6ef;
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #fff;
+  background: var(--surface);
   box-shadow: var(--shadow);
 }
 .category-top {
@@ -1314,7 +1317,7 @@ p {
   display: grid;
   place-items: center;
   border-radius: 9px;
-  background: #eef2f9;
+  background: var(--soft);
   color: var(--primary);
   font-family: 'STZhongsong', 'SimSun', serif;
   font-size: 17px;
@@ -1339,7 +1342,7 @@ p {
   justify-content: space-between;
   margin-top: auto;
   padding-top: 13px;
-  border-top: 1px solid #edf0f4;
+  border-top: 1px solid var(--line-soft);
   color: var(--muted);
   font-size: 11px;
 }
@@ -1366,9 +1369,9 @@ p {
 }
 .data-table th {
   padding: 14px 16px;
-  border-bottom: 1px solid #dfe5ee;
-  background: #f8fafc;
-  color: #68758a;
+  border-bottom: 1px solid var(--line);
+  background: var(--soft);
+  color: var(--muted);
   font-size: 11px;
   font-weight: 700;
   text-align: left;
@@ -1376,15 +1379,15 @@ p {
 }
 .data-table td {
   padding: 14px 16px;
-  border-bottom: 1px solid #edf0f4;
-  color: #445167;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--ink);
   vertical-align: middle;
 }
 .data-table tbody tr:last-child td {
   border-bottom: 0;
 }
 .data-table tbody tr:hover {
-  background: #fbfcfe;
+  background: var(--soft);
 }
 .orders-table {
   min-width: 920px;
@@ -1487,8 +1490,8 @@ p {
   color: var(--purple);
 }
 .badge-muted {
-  background: #edf0f4;
-  color: #727c8b;
+  background: var(--line-soft);
+  color: var(--muted);
 }
 .role-reader {
   background: #edf3fd;
@@ -1511,7 +1514,7 @@ p {
 }
 .table-empty > span {
   font-size: 30px;
-  color: #a5b0c0;
+  color: var(--muted);
 }
 .table-empty strong {
   color: var(--ink);
@@ -1554,7 +1557,7 @@ p {
   display: grid;
   gap: 4px;
   padding: 12px;
-  background: #fff;
+  background: var(--surface);
 }
 .detail-list dt {
   color: var(--muted);
@@ -1569,7 +1572,7 @@ p {
   margin-top: 12px;
   padding: 12px;
   border-radius: 8px;
-  background: #f6f8fb;
+  background: var(--soft);
 }
 .note-box strong {
   font-size: 11px;
@@ -1586,7 +1589,7 @@ p {
   gap: 6px;
   padding: 4px;
   border-radius: 9px;
-  background: #eef1f5;
+  background: var(--soft);
 }
 .segmented button {
   height: 36px;
@@ -1598,7 +1601,7 @@ p {
   cursor: pointer;
 }
 .segmented button.active {
-  background: #fff;
+  background: var(--surface);
   color: var(--primary);
   box-shadow: 0 2px 7px rgba(27, 42, 68, 0.1);
 }
@@ -1709,7 +1712,7 @@ p {
   flex-direction: column;
   overflow: hidden;
   border-radius: 15px;
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 25px 70px rgba(5, 15, 30, 0.28);
 }
 .modal-header {
@@ -1733,7 +1736,7 @@ p {
   gap: 10px;
   padding: 14px 22px;
   border-top: 1px solid var(--line);
-  background: #fafbfd;
+  background: var(--soft);
 }
 .modal-enter-active,
 .modal-leave-active {
@@ -1791,9 +1794,9 @@ p {
   align-items: center;
   gap: 10px;
   padding: 12px 15px;
-  border: 1px solid #dbe2eb;
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   box-shadow: 0 12px 35px rgba(23, 36, 58, 0.18);
   text-align: left;
@@ -1806,7 +1809,7 @@ p {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: #edf1f6;
+  background: var(--soft);
   font-size: 12px;
   font-weight: 900;
 }
@@ -1833,7 +1836,7 @@ p {
   place-content: center;
   justify-items: center;
   padding: 40px;
-  border: 1px dashed #cfd7e3;
+  border: 1px dashed var(--line);
   border-radius: var(--radius);
   color: var(--muted);
   text-align: center;
@@ -1877,7 +1880,7 @@ p {
   place-content: center;
   justify-items: center;
   gap: 14px;
-  background: #f2f5f9;
+  background: var(--soft);
   color: var(--muted);
 }
 .app-loading p {
@@ -2311,4 +2314,27 @@ p {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ---------- 排版与数字精修 ---------- */
+/* 书名用衬线体：这是整套界面里唯一该「像书」的地方，
+   正文仍保持无衬线，以保证长时间屏读与数据浏览的效率 */
+.book-title {
+  font-family: 'Songti SC', 'STSong', 'Source Han Serif SC', 'Noto Serif SC', Georgia,
+    'Times New Roman', serif;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+/* 册数、统计值、编号统一使用等宽数字，列表上下行才对得齐 */
+.stat-card strong,
+.result-count,
+.data-table td,
+.mini-book,
+.category-stats {
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table th {
+  letter-spacing: 0.02em;
 }

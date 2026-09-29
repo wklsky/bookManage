@@ -21,6 +21,19 @@
 - 原生 Fetch API
 - 原生 CSS
 
+## 界面约定
+
+样式全部走 `src/styles/main.css` 里的 CSS 变量，新增颜色请一律用令牌，不要写死十六进制值——否则后台的深色侧边栏与前台换肤都会出现「一半生效」。
+
+| 令牌 | 用途 |
+| --- | --- |
+| `--ink` / `--ink-soft` / `--ink-mute` | 文字三级 |
+| `--surface` / `--soft` / `--canvas` | 卡片 / 面内浅底 / 页面底 |
+| `--line` / `--line-soft` | 结构线 / 面内分隔线 |
+| `--brand` / `--brand-dark` / `--brand-soft` | 品牌蓝，与前台同源 |
+
+侧边栏按职责分成「馆藏运营」与「用户与系统」两组，8 个入口平铺会让导航变成一堵墙。指标卡顶部的色条是语义而非装饰：待审核为琥珀、逾期为红，扫视时先看到需要处理的数量。
+
 ## 功能模块
 
 | 菜单 | 权限 | 能力 |
@@ -83,7 +96,7 @@ bookAdmin/
 │  ├─ components/          # AppShell / BaseModal / PaginationBar / ToastStack
 │  ├─ layout/login.vue     # 管理员登录
 │  ├─ views/               # 8 个管理页面
-│  ├─ styles/main.css      # 后台布局样式
+│  ├─ styles/main.css      # 设计令牌 + 后台布局与组件样式
 │  ├─ App.vue              # 入口、hash 路由与角色守卫
 │  └─ main.ts
 ├─ index.html
